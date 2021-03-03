@@ -1,12 +1,12 @@
 locals {
   regional-data = {
     eu-west-1 = {
-      ssh-key-name = "Jakub EU-West-1",
+      ssh-key-name = module.utilities-regional-primary.ssh-key-name,
       vpc-id       = module.utilities-regional-primary.vpc-id,
       subnet-id    = module.utilities-regional-primary.subnet-ids,
     },
     us-east-1 = {
-      ssh-key-name = "Jakub US-East-1",
+      ssh-key-name = module.utilities-regional-secondary.ssh-key-name,
       vpc-id       = module.utilities-regional-secondary.vpc-id,
       subnet-id    = module.utilities-regional-secondary.subnet-ids,
     },
