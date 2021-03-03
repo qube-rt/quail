@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 
+  Template provisioning a EC2 instance according to the parameters provided
+
+Parameters: 
+  OperatingSystemName:
+    Description: Name of the instance's Operating System
+    Type: String
+  ProjectName:
+    Description: Name of the associated project.
+    Type: String
+
+  InstanceType:
+    Description: EC2 Instance Type 
+    Type: String
+    Default: t3.micro
+  InstanceName:
+    Description: EC2 Instance Name
+    Type: String
+  InstanceExpiry:
+    Description: The date and time the instance will be terminated (in isoformat).
+    Type: String
+  ConnectionProtocol:
+    Description: The protocol used to connect to the instance.
+    Type: String
+
+  VPCID:
+    Description: ID of the VPC hosting the instance.
+    Type: String
+  SubnetId:
+    Description: ID of the subnet in the VPC.
+    Type: String
+  SecurityGroupId:
+    Description: ID of the security group in the VPC.
+    Type: String
+  SSHKeyName:
+    Description: Name of the ssh key associated with the compute instance.
+    Type: String
+
+  AMI:
+    Description: AMI used to create the compute instance.
+    Type: String
+  InstanceProfileName:
+    Description: Name of InstanceProfile for the instance..
+    Type: String
+
+  UserDataBucket:
+    Description: Name of the bucket storing user data scripts.
+    Type: String
+  UserDataFile:
+    Description: Name of the file containing boostrap instructions.
+    Type: String
+
+  # Instance tag details
+  TagNameOne:
+    Description: Name of the first tag
+    Type: String
+  TagValueOne:
+    Description: Value of the first tag
+    Type: String
+  TagNameTwo:
+    Description: Name of the second tag
+    Type: String
+  TagValueTwo:
+    Description: Value of the second tag
+    Type: String
+
+
+Resources:
+  ComputeInstance:
+    Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M
+    Properties:
+      KeyName: !Ref SSHKeyName
+      ImageId: !Ref AMI
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfileName
+      
+      # Subnet and security group must belong to the same VPC
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroupId
+      UserData:
+          Fn::Base64:
+            !Sub |
+              #!/bin/bash -xe
+              # Install CFN helper scripts
+              apt-get --assume-yes install git
+              until git clone https://github.com/aws-quickstart/quickstart-linux-utilities.git; do echo "Retrying"; done
+              cd /quickstart-linux-utilities
+              source quickstart-cfn-tools.source
+              qs_update-os || qs_err
+              qs_bootstrap_pip || qs_err
+              qs_aws-cfn-bootstrap || qs_err
+              cd ..
+
+              # Install AWS CLI
+              apt-get --assume-yes install awscli
+
+              # Run the userdata file
+              aws s3 cp s3://${UserDataBucket}/${UserDataFile} ~/${UserDataFile}
+              source ~/${UserDataFile}
+              cfn-signal -e $? --stack ${AWS::StackName} --resource ComputeInstance --region ${AWS::Region}
+      Tags:
+        - Key: !Ref TagNameOne
+          Value: !Ref TagValueOne
+        - Key: !Ref TagNameTwo
+          Value: !Ref TagValueTwo
+        - Key: Name
+          Value: !Ref InstanceName
+        - Key: OperatingSystemName
+          Value: !Ref OperatingSystemName
+        - Key: part_of
+          Value: !Ref ProjectName
+        - Key: Expiry
+          Value: !Ref InstanceExpiry
+
+Outputs:
+  InstanceID:
+    Description: ID of the provisioned instance.
+    Value: !Ref ComputeInstance
+
+  PrivateIp:
+    Value: !GetAtt ComputeInstance.PrivateIp
+
