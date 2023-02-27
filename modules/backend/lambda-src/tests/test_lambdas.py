@@ -13,15 +13,15 @@ from patch_instance import handler as patch_instance
 from post_instances import handler as post_instances
 from post_instance_extend import handler as post_instance_extend
 from provision import handler as provision
-from tests.helpers import add_stackset_to_state
+from tests.helpers import add_stackset_to_state, get_deleted_stackset
 
 
 def test_cleanup_complete_success(state_table, state_table_name, cloudformation):
     os.environ["dynamodb_state_table_name"] = state_table_name
 
     response = cloudformation.create_stack_set(
-        StackSetName="fake_name",
-        TemplateBody="fake_body",
+        StackSetName="fake-name",
+        TemplateBody="fake-body",
         PermissionModel="SELF_MANAGED",
     )
     stackset_id = response["StackSetId"]
@@ -36,9 +36,11 @@ def test_cleanup_complete_success(state_table, state_table_name, cloudformation)
 
     cleanup_complete(event, context=None)
 
-    stackset = cloudformation.describe_stack_set(StackSetName=stackset_id)
+    ss = cloudformation.list_stack_sets()
+    print(f"{ss=}, {stackset_id=}")
+    stackset = get_deleted_stackset(cloudformation=cloudformation, stackset_id=stackset_id)
     # StackSet has been removed
-    assert stackset["StackSet"]["Status"] == "DELETED"
+    assert stackset["Status"] == "DELETED"
 
     stackset_state = state_table.get_item(TableName=state_table_name, Key={"stacksetID": {"S": stackset_id}})
     # State entry has been removed from the DB
@@ -283,7 +285,7 @@ def test_patch_instance_success_for_owner(
     initial_instance_type = "fake"
     final_instance_type = "t3.micro"
     response = cloudformation.create_stack_set(
-        StackSetName="fake_name",
+        StackSetName="fake-name",
         TemplateBody="fake_body",
         PermissionModel="SELF_MANAGED",
         Parameters=[
@@ -339,7 +341,7 @@ def test_patch_instance_success_for_superuser(
     initial_instance_type = "fake"
     final_instance_type = "t3.micro"
     response = cloudformation.create_stack_set(
-        StackSetName="fake_name",
+        StackSetName="fake-name",
         TemplateBody="fake_body",
         PermissionModel="SELF_MANAGED",
         Parameters=[
@@ -602,7 +604,6 @@ def test_post_instances_failure_missing_parameters_non_superuser(
         },
         "body": "{}",
     }
-
     response = post_instances(event, context=None)
 
     assert response["statusCode"] == 400
@@ -841,7 +842,7 @@ def test_provision_success(
     regional_table_name,
     cloudformation,
 ):
-    os.environ["project_name"] = "test_quail"
+    os.environ["project_name"] = "test-quail"
     os.environ["dynamodb_regional_metadata_table_name"] = regional_table_name
     os.environ["dynamodb_permissions_table_name"] = permission_table_name
     os.environ["dynamodb_state_table_name"] = state_table_name

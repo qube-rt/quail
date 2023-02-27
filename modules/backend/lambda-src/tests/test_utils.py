@@ -12,6 +12,7 @@ from utils import (
     CrossAccountStackSetException,
     get_instance_details,
 )
+from .conftest import dummy_cfn_template_json
 
 
 def test_get_permissions_for_group_no_data(permission_table, permission_table_name):
@@ -84,8 +85,8 @@ def test_get_owned_stacksets_non_supseruser_success(state_table, state_table_nam
 
 def test_get_instance_details_non_supseruser_across_accounts_error(account_id, cloudformation):
     response = cloudformation.create_stack_set(
-        StackSetName="fake_name",
-        TemplateBody="fake_body",
+        StackSetName="fake-name",
+        TemplateBody=dummy_cfn_template_json,
         PermissionModel="SELF_MANAGED",
         Parameters=[
             {
@@ -146,7 +147,7 @@ def test_get_stackset_state_data_success(state_table, state_table_name):
 
 def test_update_stackset_success(cloudformation):
     response = cloudformation.create_stack_set(
-        StackSetName="fake_name",
+        StackSetName="fake-name",
         TemplateBody="fake_body",
         PermissionModel="SELF_MANAGED",
         Parameters=[

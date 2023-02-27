@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import boto3
 import pytest
-from moto import mock_dynamodb2, mock_cloudformation, mock_sts, mock_s3
+from moto import mock_dynamodb, mock_cloudformation, mock_sts, mock_s3
 
 permission_data = {
     "public": {
@@ -117,6 +117,13 @@ state_data = [
         "expiry": datetime.now() + timedelta(days=1),
     },
 ]
+
+dummy_cfn_template = {
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Stack 2",
+    "Resources": {},
+}
+dummy_cfn_template_json = json.dumps(dummy_cfn_template)
 
 
 @pytest.fixture(autouse=True)
@@ -262,8 +269,8 @@ def state_table(state_table_empty, state_table_name):
 
 
 @pytest.fixture
-def dynamodb():
-    with mock_dynamodb2():
+def dynamodb(account_id):
+    with mock_dynamodb():
         mock_client = boto3.client("dynamodb")
         yield mock_client
 
@@ -287,11 +294,11 @@ def template_bucket(s3):
     bucket_name = "cfn-data-bucket"
     s3.bucket_name = bucket_name
     s3.create_bucket(Bucket=bucket_name)
-    s3.put_object(Bucket=bucket_name, Body=b"", Key="cfn-templates/aws_linux.yaml")
-    s3.put_object(Bucket=bucket_name, Body=b"", Key="cfn-templates/ubuntu_2004.yaml")
-    s3.put_object(Bucket=bucket_name, Body=b"", Key="cfn-templates/windows_server_2019.yaml")
+    s3.put_object(Bucket=bucket_name, Body=dummy_cfn_template_json, Key="cfn-templates/aws_linux.yaml")
+    s3.put_object(Bucket=bucket_name, Body=dummy_cfn_template_json, Key="cfn-templates/ubuntu_2004.yaml")
+    s3.put_object(Bucket=bucket_name, Body=dummy_cfn_template_json, Key="cfn-templates/windows_server_2019.yaml")
 
-    s3.put_object(Bucket=bucket_name, Body=b"", Key="user-data/linux.sh")
-    s3.put_object(Bucket=bucket_name, Body=b"", Key="user-data/windows.ps1")
+    s3.put_object(Bucket=bucket_name, Body=dummy_cfn_template_json, Key="user-data/linux.sh")
+    s3.put_object(Bucket=bucket_name, Body=dummy_cfn_template_json, Key="user-data/windows.ps1")
 
     return s3
