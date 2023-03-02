@@ -1,10 +1,8 @@
 import React from 'react';
 
-import InputLabel from '@material-ui/core/InputLabel';
-import MenuItem from '@material-ui/core/MenuItem';
-import FormControl from '@material-ui/core/FormControl';
-import Select from '@material-ui/core/Select';
-import FormHelperText from '@material-ui/core/FormHelperText';
+import {
+  InputLabel, MenuItem, FormControl, Select, FormHelperText,
+} from '@mui/material';
 
 export default function SelectField(props) {
   const {
@@ -14,7 +12,7 @@ export default function SelectField(props) {
   const formClasses = { ...classes };
 
   return (
-    <FormControl className={formClasses.formControl}>
+    <FormControl variant="standard" className={formClasses.formControl}>
       {label ? <InputLabel id={`${fieldName}-label`}>{label}</InputLabel> : ''}
       <Select
         labelId={`${fieldName}-label`}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ThemeProvider } from '@material-ui/core/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import getTheme from './base';
 
 // eslint-disable-next-line no-unused-vars

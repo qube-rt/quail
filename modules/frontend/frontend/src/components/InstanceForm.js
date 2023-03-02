@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 
-import { makeStyles } from '@material-ui/core/styles';
-import AddCircleIcon from '@material-ui/icons/AddCircle';
-import Paper from '@material-ui/core/Paper';
-import Grid from '@material-ui/core/Grid';
-import TextField from '@material-ui/core/TextField';
-import LinearProgress from '@material-ui/core/LinearProgress';
+import { makeStyles } from '@mui/styles';
+import { AddCircle as AddCircleIcon } from '@mui/icons-material';
+import {
+  Paper, Grid, LinearProgress, TextField,
+} from '@mui/material';
 import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
 import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
-import MuiAlert from '@material-ui/lab/Alert';
+import { Alert } from '@mui/lab';
 
 import SelectField from './SelectField';
 import DebouncedButton from './DebouncedButton';
@@ -68,16 +67,16 @@ const InstanceForm = (props) => {
   } else if (formDisabled) {
     content = (
       <Grid container spacing={3} justify="center" alignItems="center">
-        <MuiAlert variant="standard" severity="error" className={classes.alert}>
+        <Alert variant="standard" severity="error" className={classes.alert}>
           { nonFormError}
-        </MuiAlert>
+        </Alert>
       </Grid>
     );
   } else {
     content = (
       <>
         {is_superuser ? (
-          <Grid container spacing={3} justify="center" alignItems="center">
+          <Grid container spacing={3} justifyContent="center" alignItems="center">
             <Grid item xs={3}>
               <TextField
                 label="User name"
@@ -86,6 +85,7 @@ const InstanceForm = (props) => {
                 error={!!formErrors.username}
                 helperText={formErrors.username}
                 disabled={formDisabled}
+                variant="standard"
               />
             </Grid>
             <Grid item xs={3}>
@@ -96,12 +96,13 @@ const InstanceForm = (props) => {
                 error={!!formErrors.email}
                 helperText={formErrors.email}
                 disabled={formDisabled}
+                variant="standard"
               />
             </Grid>
           </Grid>
         ) : ''}
 
-        <Grid container spacing={3} justify="center" alignItems="center">
+        <Grid container spacing={3} justifyContent="center" alignItems="center">
           <Grid item xs={2}>
             <SelectField
               label="Region"
@@ -157,7 +158,7 @@ const InstanceForm = (props) => {
                 onChange={(e) => onDateChange(e, 'expiry')}
                 disabled={formDisabled}
                 // eslint-disable-next-line react/jsx-props-no-spreading
-                renderInput={(params) => <TextField {...params} onClick={() => setOpen(true)} />}
+                renderInput={(params) => <TextField {...params} onClick={() => setOpen(true)} variant="standard" />}
               />
             </LocalizationProvider>
           </Grid>
@@ -170,6 +171,7 @@ const InstanceForm = (props) => {
               error={!!formErrors.instanceName}
               helperText={formErrors.instanceName}
               disabled={formDisabled}
+              variant="standard"
             />
           </Grid>
 

@@ -1,5 +1,5 @@
-import { createTheme } from '@material-ui/core/styles';
-import { red } from '@material-ui/core/colors';
+import { createTheme } from '@mui/material/styles';
+import { red } from '@mui/material/colors';
 
 // A light theme for this app, adapted from https://www.58bits.com/blog/2020/05/27/material-ui-theme-switcher-react
 const theme = createTheme({
