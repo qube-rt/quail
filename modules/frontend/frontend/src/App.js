@@ -1,8 +1,8 @@
 import React from 'react';
 import {
   BrowserRouter as Router,
-  Switch,
   Route,
+  Routes,
 } from 'react-router-dom';
 
 import Dashboard from './Dashboard';
@@ -12,17 +12,11 @@ import AuthInitiate from './AuthInitiate';
 function App() {
   return (
     <Router>
-      <Switch>
-        <Route exact path="/">
-          <Dashboard />
-        </Route>
-        <Route path="/auth-callback">
-          <AuthCallback />
-        </Route>
-        <Route path="/auth-initiate">
-          <AuthInitiate />
-        </Route>
-      </Switch>
+      <Routes>
+        <Route exact path="/" element={<Dashboard />} />
+        <Route path="/auth-callback" element={<AuthCallback />} />
+        <Route path="/auth-initiate" element={<AuthInitiate />} />
+      </Routes>
     </Router>
   );
 }
