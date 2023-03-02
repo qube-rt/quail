@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { makeStyles } from '@material-ui/core/styles';
 import AddCircleIcon from '@material-ui/icons/AddCircle';
@@ -6,8 +6,8 @@ import Paper from '@material-ui/core/Paper';
 import Grid from '@material-ui/core/Grid';
 import TextField from '@material-ui/core/TextField';
 import LinearProgress from '@material-ui/core/LinearProgress';
-import { MuiPickersUtilsProvider, DateTimePicker } from '@material-ui/pickers';
-import MomentUtils from '@date-io/moment';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import MuiAlert from '@material-ui/lab/Alert';
 
 import SelectField from './SelectField';
@@ -31,7 +31,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export default function InstanceForm(props) {
+const InstanceForm = (props) => {
   const classes = useStyles();
   const {
     is_superuser,
@@ -55,6 +55,8 @@ export default function InstanceForm(props) {
     formErrors,
     provisionLoading,
   } = props;
+
+  const [open, setOpen] = useState(false);
 
   // Calculated values
   const formDisabled = !!nonFormError;
@@ -139,20 +141,25 @@ export default function InstanceForm(props) {
           </Grid>
 
           <Grid item xs={2}>
-            <MuiPickersUtilsProvider utils={MomentUtils}>
+            <LocalizationProvider dateAdapter={AdapterMoment}>
               <DateTimePicker
                 label="Instance expiry"
+                open={open}
+                onOpen={() => setOpen(true)}
+                onClose={() => setOpen(false)}
                 ampm={false}
                 disablePast
-                views={['date', 'hours']}
+                views={['day', 'hours']}
                 maxDate={maxExpiry}
                 value={expiry}
                 error={!!formErrors.expiry}
                 helperText={formErrors.expiry}
                 onChange={(e) => onDateChange(e, 'expiry')}
                 disabled={formDisabled}
+                // eslint-disable-next-line react/jsx-props-no-spreading
+                renderInput={(params) => <TextField {...params} onClick={() => setOpen(true)} />}
               />
-            </MuiPickersUtilsProvider>
+            </LocalizationProvider>
           </Grid>
 
           <Grid item xs={2}>
@@ -189,4 +196,6 @@ export default function InstanceForm(props) {
       {content}
     </Paper>
   );
-}
+};
+
+export default InstanceForm;
