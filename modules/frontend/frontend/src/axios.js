@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { stringify } from 'query-string';
+import queryString from 'query-string';
 
 import Config from './config';
 import {
@@ -35,7 +35,7 @@ axiosInstance.interceptors.response.use(
       removeAuthToken();
 
       // Fetch a new id token using the refresh token
-      return axiosInstance.post(Config.auth.tokenEndpointUrl, stringify({
+      return axiosInstance.post(Config.auth.tokenEndpointUrl, queryString.stringify({
         grant_type: 'refresh_token',
         client_id: Config.auth.cognitoClientId,
         refresh_token: getRefreshToken(),

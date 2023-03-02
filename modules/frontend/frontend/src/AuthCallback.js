@@ -1,7 +1,7 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 
-import { stringify } from 'query-string';
+import queryString from 'query-string';
 
 import axios from './axios';
 import Config from './config';
@@ -26,7 +26,7 @@ function AuthCallback() {
     history.push('/auth-initiate');
   }
 
-  axios.post(Config.auth.tokenEndpointUrl, stringify({
+  axios.post(Config.auth.tokenEndpointUrl, queryString.stringify({
     grant_type: 'authorization_code',
     client_id: Config.auth.cognitoClientId,
     redirect_uri: Config.auth.redirectUrl,
