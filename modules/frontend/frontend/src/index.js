@@ -4,7 +4,7 @@ import 'react-app-polyfill/stable';
 import React from 'react';
 import ReactDOM from 'react-dom';
 
-import CssBaseline from '@mui/material/CssBaseline';
+import { CssBaseline } from '@mui/material';
 import { SnackbarProvider } from 'notistack';
 
 import App from './App';
@@ -14,14 +14,14 @@ import './index.css';
 
 ReactDOM.render(
   // Unfortunately, Theming clashes with Strict mode
-  // <React.StrictMode>
-  <CustomThemeProvider>
-    <SnackbarProvider anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} autoHideDuration={5000}>
-      <CssBaseline />
-      <App />
-    </SnackbarProvider>
-  </CustomThemeProvider>,
-  // </React.StrictMode>
+  <React.StrictMode>
+    <CustomThemeProvider>
+      <SnackbarProvider anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} autoHideDuration={5000}>
+        <CssBaseline />
+        <App />
+      </SnackbarProvider>
+    </CustomThemeProvider>
+  </React.StrictMode>,
 
   document.getElementById('root'),
 );
