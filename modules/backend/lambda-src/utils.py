@@ -6,8 +6,6 @@ from datetime import datetime
 
 import boto3
 
-from moto.dynamodb.models import dynamodb_backends, Table, DynamoDBBackend
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
