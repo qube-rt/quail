@@ -140,3 +140,6 @@ lambda-layers/*/python
 *tfstate.backup
 local.auto.tfvars
 .terraform.lock.hcl
+
+# vscode config
+.vscode

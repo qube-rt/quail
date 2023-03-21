@@ -1,12 +1,10 @@
 import React, { useContext } from 'react';
 
-import { makeStyles } from '@material-ui/core/styles';
-import AppBar from '@material-ui/core/AppBar';
-import Toolbar from '@material-ui/core/Toolbar';
-import Button from '@material-ui/core/Button';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Switch from '@material-ui/core/Switch';
-import Brightness4Icon from '@material-ui/icons/Brightness4';
+import { makeStyles } from '@mui/styles';
+import {
+  AppBar, Toolbar, Button, FormControlLabel, Switch,
+} from '@mui/material';
+import { Brightness4 as Brightness4Icon } from '@mui/icons-material';
 
 import { CustomThemeContext } from '../themes/CustomThemeProvider';
 import { getUsernameFromJWT, getGroupFromJWT } from '../utils';

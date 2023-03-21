@@ -1,8 +1,7 @@
 import React from 'react';
 
 import pick from 'lodash/pick';
-import Container from '@material-ui/core/Container';
-import Box from '@material-ui/core/Box';
+import { Container, Box } from '@mui/material';
 import moment from 'moment';
 import { withSnackbar } from 'notistack';
 

@@ -1,15 +1,10 @@
 import React from 'react';
 
-import { makeStyles } from '@material-ui/core/styles';
-import RestoreIcon from '@material-ui/icons/Restore';
-import Paper from '@material-ui/core/Paper';
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableContainer from '@material-ui/core/TableContainer';
-import TableHead from '@material-ui/core/TableHead';
-import TableRow from '@material-ui/core/TableRow';
-import IconButton from '@material-ui/core/IconButton';
+import { makeStyles } from '@mui/styles';
+import { Restore as RestoreIcon } from '@mui/icons-material';
+import {
+  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton,
+} from '@mui/material';
 
 import { formatDate, getLabel } from '../utils';
 

@@ -1,14 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-import { makeStyles } from '@material-ui/core/styles';
-import AddCircleIcon from '@material-ui/icons/AddCircle';
-import Paper from '@material-ui/core/Paper';
-import Grid from '@material-ui/core/Grid';
-import TextField from '@material-ui/core/TextField';
-import LinearProgress from '@material-ui/core/LinearProgress';
-import { MuiPickersUtilsProvider, DateTimePicker } from '@material-ui/pickers';
-import MomentUtils from '@date-io/moment';
-import MuiAlert from '@material-ui/lab/Alert';
+import { makeStyles } from '@mui/styles';
+import { AddCircle as AddCircleIcon } from '@mui/icons-material';
+import {
+  Paper, Grid, LinearProgress, TextField,
+} from '@mui/material';
+import { AdapterMoment } from '@mui/x-date-pickers/AdapterMoment';
+import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { Alert } from '@mui/lab';
 
 import SelectField from './SelectField';
 import DebouncedButton from './DebouncedButton';
@@ -31,7 +30,7 @@ const useStyles = makeStyles((theme) => ({
   },
 }));
 
-export default function InstanceForm(props) {
+const InstanceForm = (props) => {
   const classes = useStyles();
   const {
     is_superuser,
@@ -56,6 +55,8 @@ export default function InstanceForm(props) {
     provisionLoading,
   } = props;
 
+  const [open, setOpen] = useState(false);
+
   // Calculated values
   const formDisabled = !!nonFormError;
 
@@ -66,16 +67,16 @@ export default function InstanceForm(props) {
   } else if (formDisabled) {
     content = (
       <Grid container spacing={3} justify="center" alignItems="center">
-        <MuiAlert variant="standard" severity="error" className={classes.alert}>
+        <Alert variant="standard" severity="error" className={classes.alert}>
           { nonFormError}
-        </MuiAlert>
+        </Alert>
       </Grid>
     );
   } else {
     content = (
       <>
         {is_superuser ? (
-          <Grid container spacing={3} justify="center" alignItems="center">
+          <Grid container spacing={3} justifyContent="center" alignItems="center">
             <Grid item xs={3}>
               <TextField
                 label="User name"
@@ -84,6 +85,7 @@ export default function InstanceForm(props) {
                 error={!!formErrors.username}
                 helperText={formErrors.username}
                 disabled={formDisabled}
+                variant="standard"
               />
             </Grid>
             <Grid item xs={3}>
@@ -94,12 +96,13 @@ export default function InstanceForm(props) {
                 error={!!formErrors.email}
                 helperText={formErrors.email}
                 disabled={formDisabled}
+                variant="standard"
               />
             </Grid>
           </Grid>
         ) : ''}
 
-        <Grid container spacing={3} justify="center" alignItems="center">
+        <Grid container spacing={3} justifyContent="center" alignItems="center">
           <Grid item xs={2}>
             <SelectField
               label="Region"
@@ -139,20 +142,25 @@ export default function InstanceForm(props) {
           </Grid>
 
           <Grid item xs={2}>
-            <MuiPickersUtilsProvider utils={MomentUtils}>
+            <LocalizationProvider dateAdapter={AdapterMoment}>
               <DateTimePicker
                 label="Instance expiry"
+                open={open}
+                onOpen={() => setOpen(true)}
+                onClose={() => setOpen(false)}
                 ampm={false}
                 disablePast
-                views={['date', 'hours']}
+                views={['day', 'hours']}
                 maxDate={maxExpiry}
                 value={expiry}
                 error={!!formErrors.expiry}
                 helperText={formErrors.expiry}
                 onChange={(e) => onDateChange(e, 'expiry')}
                 disabled={formDisabled}
+                // eslint-disable-next-line react/jsx-props-no-spreading
+                renderInput={(params) => <TextField {...params} onClick={() => setOpen(true)} variant="standard" />}
               />
-            </MuiPickersUtilsProvider>
+            </LocalizationProvider>
           </Grid>
 
           <Grid item xs={2}>
@@ -163,6 +171,7 @@ export default function InstanceForm(props) {
               error={!!formErrors.instanceName}
               helperText={formErrors.instanceName}
               disabled={formDisabled}
+              variant="standard"
             />
           </Grid>
 
@@ -189,4 +198,6 @@ export default function InstanceForm(props) {
       {content}
     </Paper>
   );
-}
+};
+
+export default InstanceForm;

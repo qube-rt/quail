@@ -1,7 +1,7 @@
 import React from 'react';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-import { stringify } from 'query-string';
+import queryString from 'query-string';
 
 import axios from './axios';
 import Config from './config';
@@ -10,7 +10,7 @@ import {
 } from './utils';
 
 function AuthCallback() {
-  const history = useHistory();
+  const navigate = useNavigate();
 
   // remove the leading hash from the callback params in order to parse the query string
   const urlParams = new URLSearchParams(window.location.search);
@@ -23,10 +23,10 @@ function AuthCallback() {
   if (receivedState !== savedState) {
     // eslint-disable-next-line no-console
     console.error('Auth state mismatch detected, redirecting to login.');
-    history.push('/auth-initiate');
+    navigate('/auth-initiate');
   }
 
-  axios.post(Config.auth.tokenEndpointUrl, stringify({
+  axios.post(Config.auth.tokenEndpointUrl, queryString.stringify({
     grant_type: 'authorization_code',
     client_id: Config.auth.cognitoClientId,
     redirect_uri: Config.auth.redirectUrl,
@@ -38,7 +38,7 @@ function AuthCallback() {
   }).then((response) => {
     const { id_token: idToken, refresh_token: refreshToken } = response.data;
     handleLogin(idToken, refreshToken);
-    history.push('/');
+    navigate('/');
   }).catch(() => {
     // eslint-disable-next-line no-console
     console.error('Auth failed, redirecting to logout.');
