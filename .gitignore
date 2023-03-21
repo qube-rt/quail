@@ -139,3 +139,4 @@ lambda-layers/*/python
 *tfstate
 *tfstate.backup
 local.auto.tfvars
+.terraform.lock.hcl

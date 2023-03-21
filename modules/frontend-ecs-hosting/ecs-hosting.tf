@@ -100,9 +100,14 @@ resource "aws_iam_policy_attachment" "ecs_task_execution_policy" {
 # ECS cluster, task definition and service running nginx
 resource "aws_ecs_cluster" "main" {
   name               = "${var.project-name}-Cluster"
-  capacity_providers = ["FARGATE"]
 
   tags = local.resource_tags
+}
+
+resource "aws_ecs_cluster_capacity_providers" "main_capacity_provider" {
+  cluster_name = aws_ecs_cluster.main.name
+
+  capacity_providers = ["FARGATE"]
 }
 
 resource "aws_ecs_task_definition" "nginx" {
