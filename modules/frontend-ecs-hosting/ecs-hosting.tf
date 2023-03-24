@@ -99,7 +99,7 @@ resource "aws_iam_policy_attachment" "ecs_task_execution_policy" {
 
 # ECS cluster, task definition and service running nginx
 resource "aws_ecs_cluster" "main" {
-  name               = "${var.project-name}-Cluster"
+  name = "${var.project-name}-Cluster"
 
   tags = local.resource_tags
 }
