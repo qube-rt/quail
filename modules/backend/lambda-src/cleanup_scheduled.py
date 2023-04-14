@@ -71,6 +71,7 @@ def handler(event, context):
                     }
 
                     response = send_email(
+                        send_email="Your compute instance will be deprovisioned soon",
                         template_name="cleanup_notice",
                         template_data=template_data,
                         source_email=f"Instance Cleanup ({project_name}) <{notification_email}>",

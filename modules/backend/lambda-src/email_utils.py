@@ -15,7 +15,7 @@ def render_template(template_name, template_data, template_path="./templates"):
     return text, html
 
 
-def send_email(template_name, template_data, source_email, to_email, cc_email=None):
+def send_email(subject, template_name, template_data, source_email, to_email, cc_email=None):
     rendered_text, rendered_html = render_template(template_name=template_name, template_data=template_data)
 
     extra_destination = {}
@@ -31,7 +31,7 @@ def send_email(template_name, template_data, source_email, to_email, cc_email=No
             **extra_destination,
         },
         Message={
-            "Subject": {"Data": "Your compute instance will be deprovisioned soon."},
+            "Subject": {"Data": subject},
             "Body": {
                 "Text": {"Data": rendered_text},
                 "Html": {"Data": rendered_html},

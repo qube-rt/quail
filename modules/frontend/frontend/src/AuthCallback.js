@@ -1,13 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import queryString from 'query-string';
-
-import axios from './axios';
-import Config from './config';
 import {
   getCodeVerifier, getAuthState, handleLogin, handleLogout,
 } from './utils';
+import appApi from './api';
 
 function AuthCallback() {
   const navigate = useNavigate();
@@ -27,24 +24,16 @@ function AuthCallback() {
   }
 
   React.useEffect(() => {
-    axios.post(Config.auth.tokenEndpointUrl, queryString.stringify({
-      grant_type: 'authorization_code',
-      client_id: Config.auth.cognitoClientId,
-      redirect_uri: Config.auth.redirectUrl,
-      code: receivedCode,
-      code_challenge_method: 'S256',
-      code_verifier: codeVerifier,
-    }), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    }).then((response) => {
-      const { id_token: idToken, refresh_token: refreshToken } = response.data;
-      handleLogin(idToken, refreshToken);
-      navigate('/');
-    }).catch(() => {
-    // eslint-disable-next-line no-console
-      console.error('Auth failed, redirecting to logout.');
-      handleLogout();
-    });
+    appApi.getCognitoToken({ receivedCode, codeVerifier })
+      .then((response) => {
+        const { id_token: idToken, refresh_token: refreshToken } = response.data;
+        handleLogin(idToken, refreshToken);
+        navigate('/');
+      }).catch(() => {
+        // eslint-disable-next-line no-console
+        console.error('Auth failed, redirecting to logout.');
+        handleLogout();
+      });
   }, []);
 
   return (
