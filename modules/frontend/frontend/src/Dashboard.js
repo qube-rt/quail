@@ -5,7 +5,7 @@ import { Container, Box } from '@mui/material';
 import moment from 'moment';
 import { withSnackbar } from 'notistack';
 
-import axios from './axios';
+import appApi from './api';
 import TopAppBar from './components/TopAppBar';
 import InstanceForm from './components/InstanceForm';
 import InstancesTable from './components/InstancesTable';
@@ -104,7 +104,7 @@ class Dashboard extends React.Component {
     this.resetForm();
 
     // Fetch the params the user has permissions for
-    axios.get('param')
+    appApi.getParams()
       .then(({ data }) => {
         const { region_map, instance_types, max_days_to_expiry } = data;
 
@@ -144,7 +144,7 @@ class Dashboard extends React.Component {
         this.setState({ formLoading: false });
       });
 
-    axios.get('instance')
+    appApi.getInstances()
       .then(({ data }) => {
         this.setState({
           currentInstances: data.sort((a, b) => new Date(a.expiry) - new Date(b.expiry)),
@@ -161,7 +161,7 @@ class Dashboard extends React.Component {
       ),
     }));
 
-    axios.delete(`instance/${instance.stackset_id}`)
+    appApi.deleteInstance({ instanceId: instance.stackset_id })
       .then(() => {
         enqueueSnackbar('Instance submitted for deprovisioning.', { variant: 'success' });
         this.setState((state) => ({
@@ -181,7 +181,7 @@ class Dashboard extends React.Component {
       ),
     }));
 
-    axios.post(`instance/${instance.stackset_id}/extend`)
+    appApi.extendInstance({ instanceId: instance.stackset_id })
       .then((response) => {
         enqueueSnackbar('Instance extended.', { variant: 'success' });
         this.setState((state) => ({
@@ -213,7 +213,7 @@ class Dashboard extends React.Component {
       ),
     }));
 
-    axios.post(`instance/${instance.stackset_id}/start`)
+    appApi.startInstance({ instanceId: instance.stackset_id })
       .then(() => {
         enqueueSnackbar('Instance started.', { variant: 'success' });
         this.setState((state) => ({
@@ -244,7 +244,7 @@ class Dashboard extends React.Component {
       ),
     }));
 
-    axios.post(`instance/${instance.stackset_id}/stop`)
+    appApi.stopInstance({ instanceId: instance.stackset_id })
       .then(() => {
         enqueueSnackbar('Instance stopped.', { variant: 'success' });
         this.setState((state) => ({
@@ -299,7 +299,7 @@ class Dashboard extends React.Component {
           ? { ...item, state: 'updating' } : item),
       ),
     }));
-    axios.patch(`instance/${instance.stackset_id}`, { instanceType })
+    appApi.updateInstance({ instanceId: instance.stackset_id, instanceType })
       .then(() => {
         enqueueSnackbar('Instance submitted for update.', { variant: 'success' });
         this.setState((state) => ({
@@ -333,7 +333,7 @@ class Dashboard extends React.Component {
     params.expiry = params.expiry.toISOString();
     this.saveConfiguration(params);
 
-    axios.post('instance', params)
+    appApi.createInstance(params)
       .then((response) => {
         this.addPendingInstance(
           { email: response.data.email, username: response.data.username, ...params },
@@ -397,7 +397,7 @@ class Dashboard extends React.Component {
     }
 
     const interval = setInterval(() => {
-      axios.get('instance')
+      appApi.getInstances()
         .then(({ data }) => {
           const currentInstances = data.sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
           this.setState({ currentInstances });

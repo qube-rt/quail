@@ -42,6 +42,7 @@ def handler(event, context):
         }
 
         send_email(
+            subject="Compute instance provisioned successfully",
             template_name="provision_success",
             template_data=template_data,
             source_email=f"Instance Provisioning ({project_name}) <{notification_email}>",

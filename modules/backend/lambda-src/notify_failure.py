@@ -40,6 +40,7 @@ def handler(event, context):
         }
 
         response = send_email(
+            subject="Error provisioning compute instances",
             template_name="provision_failure",
             template_data=template_data,
             source_email=f"Instance Provisioning ({project_name}) <{notification_email}>",

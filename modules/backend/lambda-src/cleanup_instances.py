@@ -45,6 +45,7 @@ def handler(event, context):
             "instance_name": instance_data["instanceName"],
         }
         response = send_email(
+            subject="Your compute instance has been deprovisioned",
             template_name="cleanup_complete",
             template_data=template_data,
             source_email=f"Instance Cleanup ({project_name}) <{notification_email}>",
