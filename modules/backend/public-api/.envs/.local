@@ -1,0 +1,9 @@
+# Environment variable overrides for local development
+FLASK_DEBUG=1
+FLASK_ENV=development
+GUNICORN_WORKERS=1
+LOG_LEVEL=debug
+SECRET_KEY=not-so-secret
+# In production, set to a higher number, like 31556926
+SEND_FILE_MAX_AGE_DEFAULT=0
+DYNAMODB_PERMISSIONS_TABLE_NAME=quail-permissions

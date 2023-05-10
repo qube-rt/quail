@@ -9,6 +9,7 @@ locals {
   lambda_layer_path        = "${path.module}/lambda-layers"
   cloudwatch_log_retention = 0
   sns_error_topic_arn      = var.external-sns-failure-topic-arn == "" ? aws_sns_topic.error_topic[0].arn : var.external-sns-failure-topic-arn
+  ecr_image_name           = "${var.project-name}-public-api"
 }
 
 # Shared IAM Assume role policy documents
