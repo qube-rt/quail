@@ -106,7 +106,7 @@ def audit_logging_handler(handler):
             result = handler(*args, **kwargs)
             logger.info({"event": args[0], "response": result, "type": "SUCCESS", "audit": 1})
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: B902
             logger.info({"event": args[0], "response": str(e), "type": "ERROR", "audit": 1})
             raise
 

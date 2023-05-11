@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 
 def test_healthckeck(client):
-    url = "/api/healthcheck/"
+    url = "/healthcheck"
 
     response = client.get(url)
 

@@ -3,7 +3,7 @@ from operator import itemgetter
 from datetime import timedelta
 
 import boto3
-from flask import current_app, jsonify, request
+from flask import current_app, request
 from marshmallow import ValidationError
 
 from backend.aws_utils import (
@@ -24,7 +24,7 @@ from backend.serializers import instance_post_serializer, instance_patch_seriali
 
 
 def get_healthcheck():
-    return jsonify(status=204)
+    return {}, 204
 
 
 def get_params():
@@ -39,7 +39,7 @@ def get_params():
     # Restructure the permissions
     del permissions["operating_systems"]
 
-    return jsonify(status=200, view="get_params", **permissions)
+    return permissions
 
 
 def get_instances():
@@ -153,7 +153,7 @@ def post_instance_start(stackset_id):
     client = boto3.client("ec2", region_name=instances[0]["region"])
     client.start_instances(InstanceIds=[instances[0]["instance_id"]])
 
-    return jsonify(status=204)
+    return {}, 204
 
 
 def post_instance_stop(stackset_id):
@@ -176,7 +176,7 @@ def post_instance_stop(stackset_id):
     client = boto3.client("ec2", region_name=instances[0]["region"])
     client.stop_instances(InstanceIds=[instances[0]["instance_id"]])
 
-    return jsonify(status=204)
+    return {}, 204
 
 
 def patch_instance(stackset_id):
@@ -208,7 +208,7 @@ def patch_instance(stackset_id):
     instance_type = data["instance_type"]
     update_stackset(stackset_id=stackset_id, InstanceType=instance_type)
 
-    return jsonify(status=204)
+    return {}, 204
 
 
 def post_instance_extend(stackset_id):
@@ -279,4 +279,4 @@ def delete_instances(stackset_id):
     )
     current_app.logger.info(f"SFN cleanup execution response: {response}")
 
-    return jsonify(status=204)
+    return {}, 204

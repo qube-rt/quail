@@ -1,7 +1,6 @@
 """The app module, containing the app factory function."""
 import logging
 import sys
-import json
 from time import strftime
 
 from flask import Flask, request
@@ -112,7 +111,7 @@ def configure_logger(app):
 
 
 def register_routes(app):
-    # Add rules for serving the react SPA
+    # Add rules for serving the API
     app.add_url_rule("/healthcheck", "healthcheck", view_func=views.get_healthcheck)
     app.add_url_rule("/param", "params:list", view_func=views.get_params)
     app.add_url_rule("/instance", "instance:list_get", view_func=views.get_instances, methods=["get"])
