@@ -1,0 +1,25 @@
+version: "3.8"
+
+x-build-args: &build_args
+  INSTALL_PYTHON_VERSION: 3.9
+
+services:
+  public-api-dev:
+    build:
+      context: .
+      target: development
+      args:
+        <<: *build_args
+    image: "quail-public_api-local"
+    container_name: public-api-dev
+    ports:
+      - 8080:8080
+    env_file:
+      - .envs/.local
+      - .envs/.aws
+    volumes:
+      - ./backend/:/app/backend
+      - ./setup.cfg/:/app/setup.cfg
+    stdin_open: true
+    tty: true
+    command: /app/local_start.sh

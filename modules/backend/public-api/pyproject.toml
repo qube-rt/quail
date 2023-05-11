@@ -1,0 +1,15 @@
+[tool.black]
+line-length = 120
+exclude = '''
+(?x)(
+  /(
+    \.git
+    | build
+    | dist
+    | migrations
+    | settings
+  )/
+  |staging.py
+  |urls.py
+)
+'''

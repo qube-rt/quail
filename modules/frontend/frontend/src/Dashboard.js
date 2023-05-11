@@ -145,9 +145,9 @@ class Dashboard extends React.Component {
       });
 
     appApi.getInstances()
-      .then(({ data }) => {
+      .then(({ data: { instances } }) => {
         this.setState({
-          currentInstances: data.sort((a, b) => new Date(a.expiry) - new Date(b.expiry)),
+          currentInstances: instances.sort((a, b) => new Date(a.expiry) - new Date(b.expiry)),
         });
       });
   }
@@ -398,8 +398,10 @@ class Dashboard extends React.Component {
 
     const interval = setInterval(() => {
       appApi.getInstances()
-        .then(({ data }) => {
-          const currentInstances = data.sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
+        .then(({ data: { instances } }) => {
+          const currentInstances = instances.sort(
+            (a, b) => new Date(a.expiry) - new Date(b.expiry),
+          );
           this.setState({ currentInstances });
           // If all instannces are ready, stop checking for updates
           if (currentInstances.filter((instance) => instance.state !== 'running').length === 0) {

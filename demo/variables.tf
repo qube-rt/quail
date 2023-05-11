@@ -39,7 +39,7 @@ variable "external-sns-failure-topic-arn" {
 }
 
 variable "sso-apps-metadata" {
-  type        = map
+  type        = map(any)
   description = "Map of user-group name to metadata url of the associated SSO SAML app, required for the Cognito SAML identity providers."
 }
 

@@ -106,7 +106,7 @@ def audit_logging_handler(handler):
             result = handler(*args, **kwargs)
             logger.info({"event": args[0], "response": result, "type": "SUCCESS", "audit": 1})
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: B902
             logger.info({"event": args[0], "response": str(e), "type": "ERROR", "audit": 1})
             raise
 
@@ -117,7 +117,10 @@ def get_account_id():
     return boto3.client("sts").get_caller_identity().get("Account")
 
 
-def get_claims(claims):
+def get_claims(request):
+    context = json.loads(request.headers["X-Amzn-Request-Context"])
+    claims = context["authorizer"]["jwt"]["claims"]
+
     if "email" not in claims or not claims["email"]:
         raise ValueError("The JWT is missing the 'email' claim value.")
 
@@ -129,7 +132,13 @@ def get_claims(claims):
 
     is_superuser = claims.get("custom:is_superuser", False) == "1"
 
-    return claims["email"], claims["profile"], claims["nickname"], is_superuser
+    return {
+        "email": claims["email"],
+        "group": claims["profile"],
+        "username": claims["nickname"],
+        "is_superuser": is_superuser,
+        "claims": claims,
+    }
 
 
 def get_permissions_for_group(table_name, group_name):
@@ -317,7 +326,7 @@ def fetch_stackset_instances(stackset_id, acceptable_statuses=INSTANCES_STACK_ST
 
             current_result = {
                 **current_result,
-                "private_ip": output_dict["PridvateIp"],
+                "private_ip": output_dict["PrivateIp"],
                 "instance_id": output_dict["InstanceID"],
             }
 

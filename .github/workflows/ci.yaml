@@ -25,9 +25,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install flake8
 
-      - name: Lint with flake8
+      - name: Lint public api with flake8
         run: flake8
-        working-directory: modules/backend/lambda-src
+        working-directory: modules/backend/public-api
 
   black:
     runs-on: ubuntu-latest
@@ -45,9 +45,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install black
 
-      - name: Check for black errors
+      - name: Check public api for black errors
         run: black --check .
-        working-directory: modules/backend/lambda-src
+        working-directory: modules/backend/public-api
 
   pytest:
     runs-on: ubuntu-latest
@@ -63,12 +63,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r lambda-layers/jinja-requirements.txt -r lambda-layers/marshmallow-requirements.txt -r lambda-src/tests/requirements.txt
-        working-directory: modules/backend
+          pip install -r requirements/dev.txt
+        working-directory: modules/backend/public-api
 
       - name: Run pytest
         run: pytest
-        working-directory: modules/backend/lambda-src
+        working-directory: modules/backend/public-api
 
   cfn-nag:
     runs-on: ubuntu-latest

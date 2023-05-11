@@ -1,7 +1,5 @@
 locals {
-  frontend_path       = "${path.module}/frontend"
-  frontend_build_path = "${path.module}/frontend/build"
-  s3_origin_id        = "${var.project-name}-s3-origin"
+  frontend_path = "${path.module}/frontend"
 
   react_config = <<-EOT
   REACT_APP_LOGOUT_URL=${var.logout-url}
