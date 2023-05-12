@@ -317,7 +317,7 @@ def fetch_stackset_instances(stackset_id, acceptable_statuses=INSTANCES_STACK_ST
 
             current_result = {
                 **current_result,
-                "private_ip": output_dict["PridvateIp"],
+                "private_ip": output_dict["PrivateIp"],
                 "instance_id": output_dict["InstanceID"],
             }
 
