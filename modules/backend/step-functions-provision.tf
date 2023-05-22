@@ -65,80 +65,78 @@ resource "aws_sfn_state_machine" "provision_state_machine" {
   name     = "${var.project-name}-provision-state-machine"
   role_arn = aws_iam_role.iam_role_for_provision_state_machine.arn
 
-  definition = <<EOF
-{
-  "Comment": "A instance provisioning workflow",
-  "StartAt": "Provision",
-  "States": {
-    "Provision": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.provision_lambda.arn}:$LATEST",
-        "Payload": {
-          "Input.$": "$"
-        }
+  definition = jsonencode({
+    "Comment" : "A instance provisioning workflow",
+    "StartAt" : "Provision",
+    "States" : {
+      "Provision" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke",
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.provision_lambda.arn}:$LATEST",
+          "Payload" : {
+            "Input.$" : "$"
+          }
+        },
+        "Next" : "Wait"
       },
-      "Next": "Wait"
-    },
-    "Wait": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.wait_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id",
-          "stackset_email.$": "$.Payload.stackset_email",
-          "error_if_no_operations": true
-        }
+      "Wait" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke",
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.wait_lambda.arn}:$LATEST",
+          "Payload" : {
+            "stackset_id.$" : "$.Payload.stackset_id",
+            "stackset_email.$" : "$.Payload.stackset_email",
+            "error_if_no_operations" : true
+          }
+        },
+        "ResultPath" : null,
+        "Next" : "Notify Success",
+        "Retry" : [
+          {
+            "ErrorEquals" : [
+              "StackSetExecutionInProgressException"
+            ],
+            "IntervalSeconds" : 30,
+            "BackoffRate" : 1,
+            "MaxAttempts" : 40
+          }
+        ],
+        "Catch" : [
+          {
+            "ErrorEquals" : [
+              "StackSetExecutionInProgressException"
+            ],
+            "ResultPath" : null,
+            "Next" : "Notify Failure"
+          }
+        ]
       },
-      "ResultPath": null,
-      "Next": "Notify Success",
-      "Retry": [
-        {
-          "ErrorEquals": [
-            "StackSetExecutionInProgressException"
-          ],
-          "IntervalSeconds": 30,
-          "BackoffRate": 1,
-          "MaxAttempts": 40
-        }
-      ],
-      "Catch": [ 
-        {
-          "ErrorEquals": [
-            "StackSetExecutionInProgressException"
-          ],
-          "ResultPath": null,
-          "Next": "Notify Failure"
-        }
-      ]
-    },
-    "Notify Success": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.notify_success_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id",
-          "stackset_email.$": "$.Payload.stackset_email"
-        }
+      "Notify Success" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke",
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.notify_success_lambda.arn}:$LATEST",
+          "Payload" : {
+            "stackset_id.$" : "$.Payload.stackset_id",
+            "stackset_email.$" : "$.Payload.stackset_email"
+          }
+        },
+        "End" : true
       },
-      "End": true
-    },
-    "Notify Failure": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.notify_failure_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id",
-          "stackset_email.$": "$.Payload.stackset_email"
-        }
-      },
-      "End": true
+      "Notify Failure" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke",
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.notify_failure_lambda.arn}:$LATEST",
+          "Payload" : {
+            "stackset_id.$" : "$.Payload.stackset_id",
+            "stackset_email.$" : "$.Payload.stackset_email"
+          }
+        },
+        "End" : true
+      }
     }
-  }
-}
-EOF
+  })
 }

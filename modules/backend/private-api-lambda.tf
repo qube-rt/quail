@@ -1,19 +1,19 @@
 # CloudWatch log group
-resource "aws_cloudwatch_log_group" "public_api" {
-  name              = "/aws/lambda/${local.ecr_image_name}"
+resource "aws_cloudwatch_log_group" "private_api" {
+  name              = "/aws/lambda/${local.ecr_private_api_name}"
   retention_in_days = local.cloudwatch_log_retention
   tags              = local.resource_tags
 }
 
 # Lambda Role
-resource "aws_iam_role" "public_api" {
-  name               = "${local.ecr_image_name}-lambda-role"
+resource "aws_iam_role" "private_api" {
+  name               = "${local.ecr_private_api_name}-lambda-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
   tags               = local.resource_tags
 }
 
 # permissions for the Lambda role
-data "aws_iam_policy_document" "public_api" {
+data "aws_iam_policy_document" "private_api" {
   statement {
     effect = "Allow"
     actions = [
@@ -21,7 +21,7 @@ data "aws_iam_policy_document" "public_api" {
       "logs:CreateLogGroup",
       "logs:PutLogEvents"
     ]
-    resources = ["${aws_cloudwatch_log_group.public_api.arn}:*"]
+    resources = ["${aws_cloudwatch_log_group.private_api.arn}:*"]
   }
 
   # DynamoDB-related permissions
@@ -110,31 +110,31 @@ data "aws_iam_policy_document" "public_api" {
   }
 }
 
-resource "aws_iam_role_policy" "public_api" {
-  name   = "${local.ecr_image_name}--lambda-policy"
-  policy = data.aws_iam_policy_document.public_api.json
-  role   = aws_iam_role.public_api.id
+resource "aws_iam_role_policy" "private_api" {
+  name   = "${local.ecr_private_api_name}--lambda-policy"
+  policy = data.aws_iam_policy_document.private_api.json
+  role   = aws_iam_role.private_api.id
 }
 
-data "aws_ecr_image" "public_api" {
-  repository_name = local.ecr_image_name
+data "aws_ecr_image" "private_api" {
+  repository_name = local.ecr_private_api_name
   image_tag       = "latest"
 
-  depends_on = [null_resource.public_api_image_publish]
+  depends_on = [null_resource.private_api_image_publish]
 }
 
 
-resource "aws_lambda_function" "public_api" {
-  function_name = local.ecr_image_name
-  role          = aws_iam_role.public_api.arn
+resource "aws_lambda_function" "private_api" {
+  function_name = local.ecr_private_api_name
+  role          = aws_iam_role.private_api.arn
   timeout       = 30
   memory_size   = 512
   tags          = local.resource_tags
 
   package_type = "Image"
-  image_uri    = "${aws_ecr_repository.public_api.repository_url}@${data.aws_ecr_image.public_api.id}"
+  image_uri    = "${aws_ecr_repository.private_api.repository_url}@${data.aws_ecr_image.private_api.id}"
 
-  depends_on = [docker_image.public_api, null_resource.public_api_image_publish]
+  depends_on = [docker_image.private_api, null_resource.private_api_image_publish]
 
   environment {
     variables = {

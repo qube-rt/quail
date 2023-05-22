@@ -168,7 +168,7 @@ resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx_response" {
   evaluation_periods  = 1
   period              = 300
   dimensions = {
-    "ApiId" = aws_apigatewayv2_api.main.id
+    "ApiId" = aws_apigatewayv2_api.public.id
   }
   treat_missing_data = "notBreaching"
 

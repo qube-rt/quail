@@ -7,3 +7,6 @@ SECRET_KEY=not-so-secret
 # In production, set to a higher number, like 31556926
 SEND_FILE_MAX_AGE_DEFAULT=0
 DYNAMODB_PERMISSIONS_TABLE_NAME=quail-permissions
+DYNAMODB_STATE_TABLE_NAME=quail-state-data
+PROVISION_SFN_ARN=arn:aws:states:eu-west-1:442249827373:stateMachine:quail-provision-state-machine
+CLEANUP_SFN_ARN=arn:aws:states:eu-west-1:442249827373:stateMachine:quail-cleanup-state-machine

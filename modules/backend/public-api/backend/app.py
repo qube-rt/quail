@@ -10,8 +10,7 @@ from backend import commands
 from backend.exceptions import BaseQuailException
 from backend import views
 
-
-def create_app(config_object="backend.settings.prod"):
+def create_base_app(config_object="backend.settings.prod"):
     """Create application factory, as explained here: http://flask.pocoo.org/docs/patterns/appfactories/.
 
     :param config_object: The configuration object to use.
@@ -19,13 +18,32 @@ def create_app(config_object="backend.settings.prod"):
     app = Flask(__name__.split(".")[0])
     app.config.from_object(config_object)
 
-    register_routes(app)
     register_errorhandlers(app)
     register_hooks(app)
-    register_extensions(app)
     register_shellcontext(app)
     register_commands(app)
+    register_routes(app)
     configure_logger(app)
+
+    return app
+
+
+def create_public_app():
+    app = create_base_app()
+    configure_cors(app)
+
+    from backend.public_api.blueprint import create_blueprint
+    public_blueprint = create_blueprint()
+    app.register_blueprint(public_blueprint)
+
+    return app
+
+
+def create_private_app():
+    app = create_base_app()
+    from backend.private_api.blueprint import create_blueprint
+    private_blueprint = create_blueprint()
+    app.register_blueprint(private_blueprint)
 
     return app
 
@@ -61,7 +79,7 @@ def register_hooks(app):
         return response
 
 
-def register_extensions(app):
+def configure_cors(app):
     """Register Flask extensions."""
     # CORS(app, resources={r"/*": {"origins": "*"}})
     CORS(app)
@@ -113,30 +131,3 @@ def configure_logger(app):
 def register_routes(app):
     # Add rules for serving the API
     app.add_url_rule("/healthcheck", "healthcheck", view_func=views.get_healthcheck)
-    app.add_url_rule("/param", "params:list", view_func=views.get_params)
-    app.add_url_rule("/instance", "instance:list_get", view_func=views.get_instances, methods=["get"])
-    app.add_url_rule("/instance", "instance:list_post", view_func=views.post_instances, methods=["post"])
-    app.add_url_rule(
-        "/instance/<stackset_id>/start",
-        "instance:detail_post_start",
-        view_func=views.post_instance_start,
-        methods=["post"],
-    )
-    app.add_url_rule(
-        "/instance/<stackset_id>/stop",
-        "instance:detail_post_stop",
-        view_func=views.post_instance_stop,
-        methods=["post"],
-    )
-    app.add_url_rule(
-        "/instance/<stackset_id>/extend",
-        "instance:detail_post_extend",
-        view_func=views.post_instance_extend,
-        methods=["post"],
-    )
-    app.add_url_rule(
-        "/instance/<stackset_id>", "instance:detail_patch", view_func=views.patch_instance, methods=["patch"]
-    )
-    app.add_url_rule(
-        "/instance/<stackset_id>", "instance:detail_delete", view_func=views.delete_instances, methods=["delete"]
-    )

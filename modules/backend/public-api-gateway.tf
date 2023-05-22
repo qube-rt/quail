@@ -1,21 +1,21 @@
 # CloudWatch log group
-resource "aws_cloudwatch_log_group" "api_gateway_prod" {
-  name              = "/aws/gateway/${aws_apigatewayv2_api.main.name}/prod"
+resource "aws_cloudwatch_log_group" "api_gateway_public" {
+  name              = "/aws/gateway/${aws_apigatewayv2_api.public.name}"
   retention_in_days = local.cloudwatch_log_retention
   tags              = local.resource_tags
 }
 
 # API Gateway + stage
-resource "aws_apigatewayv2_api" "main" {
-  name          = "${var.project-name}-http-api"
+resource "aws_apigatewayv2_api" "public" {
+  name          = "${var.project-name}-public-api"
   protocol_type = "HTTP"
   tags          = local.resource_tags
   # CORS can be configured either here or at the application level
   # Defining it at the application in favour of portability 
 }
 
-resource "aws_apigatewayv2_stage" "prod" {
-  api_id      = aws_apigatewayv2_api.main.id
+resource "aws_apigatewayv2_stage" "public_api_prod" {
+  api_id      = aws_apigatewayv2_api.public.id
   name        = "prod"
   auto_deploy = true
   tags        = local.resource_tags
@@ -26,7 +26,7 @@ resource "aws_apigatewayv2_stage" "prod" {
   }
 
   access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.api_gateway_prod.arn
+    destination_arn = aws_cloudwatch_log_group.api_gateway_public.arn
     format = jsonencode({
       requestId : "$context.requestId",
       ip : "$context.identity.sourceIp",
@@ -62,7 +62,7 @@ data "aws_iam_policy_document" "apigateway_assume_role" {
 
 # Authorizers
 resource "aws_apigatewayv2_authorizer" "cognito-jwt" {
-  api_id           = aws_apigatewayv2_api.main.id
+  api_id           = aws_apigatewayv2_api.public.id
   authorizer_type  = "JWT"
   identity_sources = ["$request.header.Authorization"]
   name             = "cognito-jwt-authorizer"
@@ -77,7 +77,7 @@ resource "aws_apigatewayv2_authorizer" "cognito-jwt" {
 # flask api integration + route
 ###############################
 resource "aws_apigatewayv2_integration" "public_api" {
-  api_id = aws_apigatewayv2_api.main.id
+  api_id = aws_apigatewayv2_api.public.id
 
   integration_type       = "AWS_PROXY"
   connection_type        = "INTERNET"
@@ -92,7 +92,7 @@ resource "aws_apigatewayv2_integration" "public_api" {
 }
 
 resource "aws_apigatewayv2_route" "public_api_root" {
-  api_id = aws_apigatewayv2_api.main.id
+  api_id = aws_apigatewayv2_api.public.id
   # route_key = "ANY /{proxy+}"
   route_key          = "$default"
   target             = "integrations/${aws_apigatewayv2_integration.public_api.id}"
@@ -103,7 +103,7 @@ resource "aws_apigatewayv2_route" "public_api_root" {
 # Need to leave the /OPTIONS requests as unauthenticated for CORS
 # https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-cors.html
 resource "aws_apigatewayv2_route" "public_api_root_options" {
-  api_id    = aws_apigatewayv2_api.main.id
+  api_id    = aws_apigatewayv2_api.public.id
   route_key = "OPTIONS /{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.public_api.id}"
 }

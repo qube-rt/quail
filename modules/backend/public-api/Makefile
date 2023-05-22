@@ -45,17 +45,3 @@ publish-ecr:
 	aws ecr get-login-password --region ${AWS_REGION} | \
         docker login --username AWS --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
 	docker push ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/quail-public_api:latest
-
-.PHONY: ecs-shell
-ecs-shell: export AWS_REGION=eu-west-1
-ecs-shell: export AWS_ECS_CLUSTER=quail-Cluster
-ecs-shell: export AWS_ECS_TASK_ID=7f58aeac68584a05a339583825c197e0
-ecs-shell: export AWS_ECS_CONTAINER=quail-app
-ecs-shell:
-	aws ecs execute-command  \
-		--region ${AWS_REGION} \
-		--cluster ${AWS_ECS_CLUSTER} \
-		--task ${AWS_ECS_TASK_ID} \
-		--container ${AWS_ECS_CONTAINER} \
-		--command "/bin/bash" \
-		--interactive

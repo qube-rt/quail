@@ -7,7 +7,7 @@ services:
   public-api-dev:
     build:
       context: .
-      target: development
+      target: development_public_api
       args:
         <<: *build_args
     image: "quail-public_api-local"
@@ -22,4 +22,22 @@ services:
       - ./setup.cfg/:/app/setup.cfg
     stdin_open: true
     tty: true
-    command: /app/local_start.sh
+
+  private-api-dev:
+    build:
+      context: .
+      target: development_private_api
+      args:
+        <<: *build_args
+    image: "quail-public_api-local"
+    container_name: private-api-dev
+    ports:
+      - 8088:8080
+    env_file:
+      - .envs/.local
+      - .envs/.aws
+    volumes:
+      - ./backend/:/app/backend
+      - ./setup.cfg/:/app/setup.cfg
+    stdin_open: true
+    tty: true

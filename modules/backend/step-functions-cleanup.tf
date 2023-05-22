@@ -62,58 +62,56 @@ resource "aws_sfn_state_machine" "cleanup_state_machine" {
   role_arn = aws_iam_role.iam_role_for_cleanup_state_machine.arn
   tags     = local.resource_tags
 
-  definition = <<EOF
-{
-  "Comment": "The StackSet cleanup workflow",
-  "StartAt": "Remove Instances",
-  "States": {
-    "Remove Instances": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.cleanup_instances_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.stackset_id",
-          "stackset_email.$": "$.stackset_email"
-        }
+  definition = jsonencode({
+    "Comment" : "The StackSet cleanup workflow",
+    "StartAt" : "Remove Instances",
+    "States" : {
+      "Remove Instances" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke",
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.cleanup_instances_lambda.arn}:$LATEST",
+          "Payload" : {
+            "stackset_id.$" : "$.stackset_id",
+            "stackset_email.$" : "$.stackset_email"
+          }
+        },
+        "Next" : "Wait"
       },
-      "Next": "Wait"
-    },
-    "Wait": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.wait_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id",
-          "error_if_no_operations": false
-        }
+      "Wait" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke",
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.wait_lambda.arn}:$LATEST",
+          "Payload" : {
+            "stackset_id.$" : "$.Payload.stackset_id",
+            "error_if_no_operations" : false
+          }
+        },
+        "ResultPath" : null,
+        "Next" : "Remove StackSet",
+        "Retry" : [
+          {
+            "ErrorEquals" : [
+              "StackSetExecutionInProgressException"
+            ],
+            "IntervalSeconds" : 60,
+            "BackoffRate" : 1,
+            "MaxAttempts" : 10
+          }
+        ]
       },
-      "ResultPath": null,
-      "Next": "Remove StackSet",
-      "Retry": [
-        {
-          "ErrorEquals": [
-            "StackSetExecutionInProgressException"
-          ],
-          "IntervalSeconds": 60,
-          "BackoffRate": 1,
-          "MaxAttempts": 10
-        }
-      ]
-    },
-    "Remove StackSet": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.cleanup_complete_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id"
-        }
-      },
-      "End": true
+      "Remove StackSet" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke",
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.cleanup_complete_lambda.arn}:$LATEST",
+          "Payload" : {
+            "stackset_id.$" : "$.Payload.stackset_id"
+          }
+        },
+        "End" : true
+      }
     }
-  }
-}
-EOF
+  })
 }
