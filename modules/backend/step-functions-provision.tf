@@ -47,6 +47,8 @@ data "aws_iam_policy_document" "provision_state_machine_role_policy_document" {
       "${aws_lambda_function.notify_success_lambda.arn}:*",
       aws_lambda_function.notify_failure_lambda.arn,
       "${aws_lambda_function.notify_failure_lambda.arn}:*",
+      aws_lambda_function.private_api.arn,
+      "${aws_lambda_function.private_api.arn}:*",
     ]
   }
 }

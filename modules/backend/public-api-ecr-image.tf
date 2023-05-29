@@ -22,10 +22,9 @@ resource "docker_image" "public_api" {
     # Only rebuild if any of the source files, assets or dependencies have changed.
     dir_sha1 = sha1(
       join("", [for f in concat(
-        tolist(fileset(".", "${path.module}/public_api/**")),
+        tolist(fileset(".", "${path.module}/public-api/**")),
       ) : filesha1(f)])
-    ),
-    force : "true"
+    )
   }
 }
 

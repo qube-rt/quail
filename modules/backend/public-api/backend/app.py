@@ -15,7 +15,7 @@ def create_base_app(config_object="backend.settings.prod"):
 
     :param config_object: The configuration object to use.
     """
-    app = Flask(__name__.split(".")[0])
+    app = Flask(__name__.split(".")[0], static_folder=None)
     app.config.from_object(config_object)
 
     register_errorhandlers(app)
@@ -61,7 +61,7 @@ def register_hooks(app):
             request.method,
             request.scheme,
             request.full_path,
-            request.headers.items(),
+            list(request.headers.items()),
         )
 
     @app.after_request

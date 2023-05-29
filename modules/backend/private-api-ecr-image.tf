@@ -21,9 +21,7 @@ resource "docker_image" "private_api" {
   triggers = {
     # Only rebuild if any of the source files, assets or dependencies have changed.
     dir_sha1 = sha1(
-      join("", [for f in concat(
-        tolist(fileset(".", "${path.module}/public_api/**")),
-      ) : filesha1(f)])
+      join("", [for f in tolist(fileset(".", "${path.module}/public-api/**")) : filesha1(f)])
     )
   }
 }
