@@ -70,17 +70,29 @@ data "aws_iam_policy_document" "cleanup_scheduled_lambda_role_policy_document" {
     ]
     resources = [aws_sfn_state_machine.cleanup_state_machine.arn]
   }
+
+  # ses permissions
+    statement {
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "ses:FromAddress"
+
+      values = [
+        var.notification-email
+      ]
+    }
+  }
 }
 
 resource "aws_iam_role_policy" "iam_role_policy_for_cleanup_scheduled_lambda" {
   name   = "${var.project-name}-cleanup-scheduled-lambda-policy"
   policy = data.aws_iam_policy_document.cleanup_scheduled_lambda_role_policy_document.json
-  role   = aws_iam_role.iam_role_for_cleanup_scheduled_lambda.id
-}
-
-resource "aws_iam_role_policy" "ses_policy_for_cleanup_scheduled_lambda" {
-  name   = "${var.project-name}-cleanup-scheduled-lambda-policy-for-ses"
-  policy = data.aws_iam_policy_document.ses_notification_permissions.json
   role   = aws_iam_role.iam_role_for_cleanup_scheduled_lambda.id
 }
 

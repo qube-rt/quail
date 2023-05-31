@@ -1,19 +1,24 @@
-import os
+from uuid import uuid4
 import json
 import random
 from datetime import datetime
 
 import boto3
-from flask import request
+from flask import request, current_app
 
 from backend.aws_utils import (
     get_params_for_region,
     get_os_config,
-    audit_logging_handler,
-    StackSetExecutionInProgressException,
     STACKSET_OPERATION_INCOMPLETE_STATUSES,
     SYNCHRONIZED_STATUS,
     SUCCESS_DETAILED_STATUS,
+    send_sns_message,
+    fetch_stackset_instances,
+    initiate_stackset_deprovisioning,
+)
+from backend.email_utils import send_email
+from backend.exceptions import (
+    StackSetExecutionInProgressException,
 )
 
 
@@ -49,12 +54,12 @@ def post_provision():
     }
 
     # read in data from environment
-    project_name = os.environ["project_name"]
-    regional_metadata_table = os.environ["dynamodb_regional_metadata_table_name"]
-    state_table = os.environ["dynamodb_state_table_name"]
-    permissions_table = os.environ["dynamodb_permissions_table_name"]
-    cfn_data_bucket = os.environ["cfn_data_bucket"]
-    tag_config = json.loads(os.environ["tag_config"])
+    project_name = current_app.config["PROJECT_NAME"]
+    regional_metadata_table = current_app.config["DYNAMODB_REGIONAL_METADATA_TABLE_NAME"]
+    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
+    permissions_table = current_app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"]
+    cfn_data_bucket = current_app.config["CFN_DATA_BUCKET"]
+    tag_config = json.loads(current_app.config["TAG_CONFIG"])
 
     # The number of tags is hardcoded in the terraform template
     assert len(tag_config) == 2
@@ -74,7 +79,7 @@ def post_provision():
 
     client = boto3.client("cloudformation")
     response = client.create_stack_set(
-        StackSetName=f"{project_name}-stackset-{context.aws_request_id}",
+        StackSetName=f"{project_name}-stackset-{str(uuid4())}",
         Description=f"Provisioning compute instances using {project_name}",
         TemplateURL=template_url,
         Parameters=[
@@ -200,12 +205,10 @@ def post_provision():
 
 
 def get_wait():
-    payload = request.json
-
-    stack_name = payload["stackset_id"]
+    stack_name = request.args.get("stackset_id")
     # Whether no operations should cause the function to error. It should be true when creating an instance
     # but false when waiting for delete operations to complete.
-    error_if_no_operations = payload["error_if_no_operations"]
+    error_if_no_operations = request.args.get("error_if_no_operations")
 
     client = boto3.client("cloudformation")
 
@@ -227,3 +230,154 @@ def get_wait():
             or instance["StackInstanceStatus"]["DetailedStatus"] != SUCCESS_DETAILED_STATUS
         ):
             raise StackSetExecutionInProgressException()
+
+    return {}, 204
+
+
+def post_notify_success():
+    # read in data from environment
+    project_name = current_app.config["PROJECT_NAME"]
+    notification_email = current_app.config["NOTIFICATION_EMAIL"]
+    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
+
+    # read in data passed to the lambda call
+    payload = request.json
+    stackset_id = payload["stackset_id"]
+    stackset_email = payload["stackset_email"]
+
+    # Get config from dynamodb
+    dynamodb_client = boto3.client("dynamodb")
+    state_data = dynamodb_client.get_item(TableName=state_table, Key={"stacksetID": {"S": stackset_id}})["Item"]
+
+    for instance_data in fetch_stackset_instances(stackset_id=stackset_id):
+        template_data = {
+            "region": instance_data["region"],
+            "os": instance_data["operatingSystemName"],
+            "instance_type": instance_data["instanceType"],
+            "instance_name": instance_data["instanceName"],
+            "ip": instance_data["private_ip"],
+            "expiry": datetime.fromisoformat(state_data["expiry"]["S"]).strftime("%-I %p %d %B"),
+        }
+
+        send_email(
+            subject="Compute instance provisioned successfully",
+            template_name="provision_success",
+            template_data=template_data,
+            source_email=f"Instance Provisioning ({project_name}) <{notification_email}>",
+            to_email=stackset_email,
+        )
+
+    return {}, 204
+
+
+def post_notify_failure():
+    # read in data from environment
+    project_name = current_app.config["PROJECT_NAME"]
+    notification_email = current_app.config["NOTIFICATION_EMAIL"]
+    admin_email = current_app.config["ADMIN_EMAIL"]
+    sns_error_topic_arn = current_app.config["SNS_ERROR_TOPIC_ARN"]
+    cleanup_sfn_arn = current_app.config["CLEANUP_SFN_ARN"]
+
+    # read in data passed to the lambda call
+    payload = request.json
+    stackset_id = payload["stackset_id"]
+    stackset_email = payload["stackset_email"]
+
+    # send SNS failure notification
+    send_sns_message(topic_arn=sns_error_topic_arn, stackset_id=stackset_id)
+
+    for instance_data in fetch_stackset_instances(stackset_id=stackset_id, acceptable_statuses=None):
+        template_data = {
+            "region": instance_data["region"],
+            "os": instance_data["operatingSystemName"],
+            "instance_type": instance_data["instanceType"],
+            "instance_name": instance_data["instanceName"],
+        }
+
+        response = send_email(
+            subject="Error provisioning compute instances",
+            template_name="provision_failure",
+            template_data=template_data,
+            source_email=f"Instance Provisioning ({project_name}) <{notification_email}>",
+            to_email=stackset_email,
+            cc_email=admin_email,
+        )
+        current_app.logger.info(response)
+
+        current_app.logger.info(f"Stackset {stackset_id} is due for cleanup, passing it to the cleanup state machine")
+        initiate_stackset_deprovisioning(
+            stackset_id=stackset_id,
+            cleanup_sfn_arn=cleanup_sfn_arn,
+            owner_email=stackset_email,
+        )
+        current_app.logger.info(f"SFN cleanup execution response: {response}")
+
+    return {}, 204
+
+
+def post_cleanup_start():
+    # read in data from environment
+    project_name = current_app.config["PROJECT_NAME"]
+    notification_email = current_app.config["NOTIFICATION_EMAIL"]
+
+    # read in data passed to the lambda call
+    payload = request.json
+    stackset_id = payload["stackset_id"]
+    owner_email = payload["stackset_email"]
+
+    # Make provisions for paging of the results
+    cfn_client = boto3.client("cloudformation")
+
+    for instance_data in fetch_stackset_instances(stackset_id=stackset_id):
+        response = cfn_client.delete_stack_instances(
+            StackSetName=stackset_id,
+            Accounts=[instance_data["account_id"]],
+            Regions=[instance_data["region"]],
+            RetainStacks=False,
+        )
+
+        current_app.logger.info(response)
+
+        template_data = {
+            "region": instance_data["region"],
+            "os": instance_data["operatingSystemName"],
+            "instance_type": instance_data["instanceType"],
+            "instance_name": instance_data["instanceName"],
+        }
+        response = send_email(
+            subject="Your compute instance has been deprovisioned",
+            template_name="cleanup_complete",
+            template_data=template_data,
+            source_email=f"Instance Cleanup ({project_name}) <{notification_email}>",
+            to_email=owner_email,
+        )
+
+        current_app.logger.info(response)
+
+    return {
+        "stackset_id": stackset_id,
+    }
+
+
+def post_cleanup_complete():
+    # read in data from environment
+    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
+
+    # read in data passed to the lambda call
+    payload = request.json
+    stackset_id = payload["stackset_id"]
+
+    # Delete StackSet
+    cfn_client = boto3.client("cloudformation")
+    response = cfn_client.delete_stack_set(StackSetName=stackset_id)
+    current_app.logger.info(response)
+
+    # Remove the StackSet record from the state table
+    dynamodb_client = boto3.client("dynamodb")
+    response = dynamodb_client.delete_item(
+        TableName=state_table,
+        Key={"stacksetID": {"S": stackset_id}},
+    )
+    current_app.logger.info(response)
+
+    return response

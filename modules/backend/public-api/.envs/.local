@@ -10,3 +10,14 @@ DYNAMODB_PERMISSIONS_TABLE_NAME=quail-permissions
 DYNAMODB_STATE_TABLE_NAME=quail-state-data
 PROVISION_SFN_ARN=arn:aws:states:eu-west-1:442249827373:stateMachine:quail-provision-state-machine
 CLEANUP_SFN_ARN=arn:aws:states:eu-west-1:442249827373:stateMachine:quail-cleanup-state-machine
+
+PROJECT_NAME=quail
+ADMIN_EMAIL=me+receive@jakubmusko.com
+NOTIFICATION_EMAIL=me+notifications@jakubmusko.com
+CFN_DATA_BUCKET=quail-cfn-data-bucket
+CLEANUP_SFN_ARN=arn:aws:states:eu-west-1:442249827373:stateMachine:quail-cleanup-state-machine
+DYNAMODB_PERMISSIONS_TABLE_NAME=quail-permissions
+DYNAMODB_REGIONAL_METADATA_TABLE_NAME=quail-regional-data
+DYNAMODB_STATE_TABLE_NAME=quail-state-data
+SNS_ERROR_TOPIC_ARN=arn:aws:sns:eu-west-1:442249827373:quail-error-topic
+TAG_CONFIG=[{"tag-name":"user","tag-value":"$email"},{"tag-name":"group","tag-value":"profile"}]

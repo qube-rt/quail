@@ -105,8 +105,10 @@ data "aws_iam_policy_document" "public_api" {
     actions = [
       "states:StartExecution"
     ]
-    resources = [aws_sfn_state_machine.provision_state_machine.arn,
-    aws_sfn_state_machine.cleanup_state_machine.arn]
+    resources = [
+      aws_sfn_state_machine.provision_state_machine.arn,
+      aws_sfn_state_machine.cleanup_state_machine.arn
+    ]
   }
 }
 

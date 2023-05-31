@@ -31,6 +31,7 @@ RUN pip install --no-cache -r requirements/prod.txt
 COPY --chown=quail:quail public_app.py ./public_app.py
 COPY --chown=quail:quail private_app.py ./private_app.py
 COPY --chown=quail:quail backend ./backend
+COPY --chown=quail:quail templates ./templates
 COPY --chown=quail:quail shell_scripts/prod_start_public.sh prod_start_public.sh
 COPY --chown=quail:quail shell_scripts/prod_start_private.sh prod_start_private.sh
 RUN chmod +x prod_start_private.sh prod_start_public.sh

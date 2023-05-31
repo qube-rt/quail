@@ -1,0 +1,8 @@
+There has been an error provisioning the below compute instance:
+
+* name {{instance_name}}
+* region: {{region}}
+* operation system: {{os}}
+* type: {{instance_type}}
+
+The admin team has been notified about the issue.

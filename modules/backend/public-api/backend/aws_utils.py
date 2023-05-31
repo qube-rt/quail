@@ -6,6 +6,8 @@ from datetime import datetime
 
 import boto3
 
+from backend.exceptions import CrossAccountStackSetException, PermissionsMissing
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -30,68 +32,6 @@ INSTANCES_STACK_STATUSES = {
     "UPDATE_IN_PROGRESS",
     "UPDATE_COMPLETE",
 }
-
-
-class APIException(Exception):
-    status_code = 500
-    message = "Server error"
-
-    def __init__(self, message=None, status_code=None):
-        if message is not None:
-            self.message = message
-        if status_code is not None:
-            self.status_code = status_code
-
-
-class PermissionsMissing(APIException):
-    status_code = 400
-
-
-class UnauthorizedForInstanceError(APIException):
-    status_code = 400
-    message = "You're not authorized to modify this instance."
-
-
-class InstanceUpdateError(APIException):
-    status_code = 400
-    message = "Instance update has failed."
-
-
-class InvalidArgumentsError(APIException):
-    status_code = 400
-
-
-class StackSetCreationException(Exception):
-    pass
-
-
-class CrossAccountStackSetException(Exception):
-    pass
-
-
-class StackSetExecutionInProgressException(Exception):
-    # NB: This should not inherit from APIException as the exception is used to signal
-    # retries in the step function state machine
-    pass
-
-
-def exception_handler(handler):
-    """
-    Wrapper for handling exceptions raised by the applications and converting them to error messages.
-    """
-
-    @functools.wraps(handler)
-    def inner(*args, **kwargs):
-        try:
-            return handler(*args, **kwargs)
-        except APIException as e:
-            return {
-                "statusCode": e.status_code,
-                "body": json.dumps({"message": e.message}),
-                "headers": {"Content-Type": "application/json"},
-            }
-
-    return inner
 
 
 def audit_logging_handler(handler):

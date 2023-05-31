@@ -3,6 +3,8 @@ import logging
 import sys
 from time import strftime
 
+import boto3
+import json
 from flask import Flask, request
 from flask_cors import CORS
 
@@ -10,7 +12,8 @@ from backend import commands
 from backend.exceptions import BaseQuailException
 from backend import views
 
-def create_base_app(config_object="backend.settings.prod"):
+
+def create_base_app(config_object):
     """Create application factory, as explained here: http://flask.pocoo.org/docs/patterns/appfactories/.
 
     :param config_object: The configuration object to use.
@@ -29,10 +32,11 @@ def create_base_app(config_object="backend.settings.prod"):
 
 
 def create_public_app():
-    app = create_base_app()
+    app = create_base_app(config_object="backend.settings.public_prod")
     configure_cors(app)
 
     from backend.public_api.blueprint import create_blueprint
+
     public_blueprint = create_blueprint()
     app.register_blueprint(public_blueprint)
 
@@ -40,8 +44,9 @@ def create_public_app():
 
 
 def create_private_app():
-    app = create_base_app()
+    app = create_base_app(config_object="backend.settings.private_prod")
     from backend.private_api.blueprint import create_blueprint
+
     private_blueprint = create_blueprint()
     app.register_blueprint(private_blueprint)
 
@@ -52,7 +57,7 @@ def register_hooks(app):
     """Register Flask hooks."""
 
     @app.before_request
-    def before_request_func():
+    def before_request_logger():
         timestamp = strftime("[%Y-%b-%d %H:%M]")
         app.logger.info(
             "Before request: %s %s %s %s %s %s",
@@ -65,7 +70,7 @@ def register_hooks(app):
         )
 
     @app.after_request
-    def after_request_func(response):
+    def after_request_logger(response):
         timestamp = strftime("[%Y-%b-%d %H:%M]")
         app.logger.info(
             "After request: %s %s %s %s %s %s",
@@ -78,18 +83,47 @@ def register_hooks(app):
         )
         return response
 
+    @app.after_request
+    def step_function_notifier(response):
+        # If the API is invoked by step functions and the request succeeds
+        # send a success signal
+        task_token = request.headers.get("TaskToken")
+        if task_token and 200 <= response.status_code < 300:
+            sfn_client = boto3.client("stepfunctions")
+            sfn_client.send_task_success(taskToken=task_token, output=response.get_data(as_text=True))
+
+        return response
+
 
 def configure_cors(app):
     """Register Flask extensions."""
     # CORS(app, resources={r"/*": {"origins": "*"}})
     CORS(app)
-    return None
 
 
 def register_errorhandlers(app):
     """Register error handlers."""
 
+    # For exceptions, if invoked by a Step Function with a task token,
+    # send a failure signal
+    def send_step_function_error(error):
+        task_token = request.headers.get("TaskToken")
+        if task_token:
+            app.logger.info(
+                "send_step_function_error.task_token %s %s",
+                error.__class__.__name__,
+                error.message if hasattr(error, "message") else "Internal Server Error",
+            )
+            sfn_client = boto3.client("stepfunctions")
+            sfn_client.send_task_failure(
+                taskToken=task_token,
+                error=error.__class__.__name__,
+                cause=error.message if hasattr(error, "message") else "Internal Server Error",
+            )
+
     def render_error(error):
+        app.logger.error("render_error handler: %s", error)
+        send_step_function_error(error)
         # If a HTTPException, pull the `code` attribute; default to 500
         error_code = getattr(error, "code", 500)
         return {}, error_code
@@ -99,11 +133,13 @@ def register_errorhandlers(app):
 
     def translate_exception(error_code, message, exception):
         """Traps known exceptions and translates them to error responses."""
+        send_step_function_error(exception)
         return {"error": message}, error_code
 
     app.register_error_handler(BaseQuailException, lambda e: translate_exception(e.status_code, e.message, e))
 
-    return None
+    # Register a catch-all Exception trap that will notify step functions of the failure
+    app.register_error_handler(Exception, render_error)
 
 
 def register_shellcontext(app):

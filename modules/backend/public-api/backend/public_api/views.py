@@ -14,11 +14,13 @@ from backend.aws_utils import (
     get_account_id,
     provision_stackset,
     get_stackset_state_data,
+    update_stackset,
+    initiate_stackset_deprovisioning,
+)
+from backend.exceptions import (
     UnauthorizedForInstanceError,
     InvalidArgumentsError,
-    update_stackset,
     InstanceUpdateError,
-    initiate_stackset_deprovisioning,
 )
 from backend.serializers import instance_post_serializer, instance_patch_serializer
 
