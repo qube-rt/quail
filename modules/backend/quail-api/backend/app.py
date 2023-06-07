@@ -4,7 +4,6 @@ import sys
 from time import strftime
 
 import boto3
-import json
 from flask import Flask, request
 from flask_cors import CORS
 
@@ -31,8 +30,8 @@ def create_base_app(config_object):
     return app
 
 
-def create_public_app():
-    app = create_base_app(config_object="backend.settings.public_prod")
+def create_public_app(config_object="backend.settings.public_prod"):
+    app = create_base_app(config_object=config_object)
     configure_cors(app)
 
     from backend.public_api.blueprint import create_blueprint
@@ -43,8 +42,8 @@ def create_public_app():
     return app
 
 
-def create_private_app():
-    app = create_base_app(config_object="backend.settings.private_prod")
+def create_private_app(config_object="backend.settings.private_prod"):
+    app = create_base_app(config_object=config_object)
     from backend.private_api.blueprint import create_blueprint
 
     private_blueprint = create_blueprint()

@@ -1,2 +1,2 @@
 def get_healthcheck():
-    return {}, 200
+    return {}, 204
