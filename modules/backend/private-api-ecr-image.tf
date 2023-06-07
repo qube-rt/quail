@@ -9,7 +9,7 @@ resource "docker_image" "private_api" {
   keep_locally = false
 
   build {
-    context    = "${path.module}/public-api"
+    context    = "${path.module}/quail-api"
     dockerfile = "Dockerfile"
     target     = "production_private_api"
     build_args = {
@@ -21,7 +21,7 @@ resource "docker_image" "private_api" {
   triggers = {
     # Only rebuild if any of the source files, assets or dependencies have changed.
     dir_sha1 = sha1(
-      join("", [for f in tolist(fileset(".", "${path.module}/public-api/**")) : filesha1(f)])
+      join("", [for f in tolist(fileset(".", "${path.module}/quail-api/**")) : filesha1(f)])
     )
   }
 }
