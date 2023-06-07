@@ -30,7 +30,7 @@ resource "docker_image" "private_api" {
 resource "null_resource" "private_api_image_publish" {
   provisioner "local-exec" {
     command = <<-EOT
-      aws ecr get-login-password --region eu-west-1 | \
+      aws ecr get-login-password --region eu-west-1  | \
         docker login --username AWS --password-stdin ${var.account-primary}.dkr.ecr.${var.region-primary}.amazonaws.com
       docker push ${aws_ecr_repository.private_api.repository_url}
     EOT

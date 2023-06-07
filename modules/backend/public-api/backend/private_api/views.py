@@ -1,7 +1,7 @@
 from uuid import uuid4
 import json
 import random
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import boto3
 from flask import request, current_app
@@ -55,7 +55,9 @@ def post_provision():
 
     # read in data from environment
     project_name = current_app.config["PROJECT_NAME"]
-    regional_metadata_table = current_app.config["DYNAMODB_REGIONAL_METADATA_TABLE_NAME"]
+    regional_metadata_table = current_app.config[
+        "DYNAMODB_REGIONAL_METADATA_TABLE_NAME"
+    ]
     state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
     permissions_table = current_app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"]
     cfn_data_bucket = current_app.config["CFN_DATA_BUCKET"]
@@ -75,7 +77,9 @@ def post_provision():
     tags = get_tags(user=params["user_claims"], tag_config=tag_config)
 
     # Create the stackset
-    template_url = f"https://s3.amazonaws.com/{cfn_data_bucket}/{os_config['template-filename']}"
+    template_url = (
+        f"https://s3.amazonaws.com/{cfn_data_bucket}/{os_config['template-filename']}"
+    )
 
     client = boto3.client("cloudformation")
     response = client.create_stack_set(
@@ -121,7 +125,9 @@ def post_provision():
             },
             {
                 "ParameterKey": "SecurityGroupId",
-                "ParameterValue": os_config["region-map"][params["region"]]["security-group"],
+                "ParameterValue": os_config["region-map"][params["region"]][
+                    "security-group"
+                ],
             },
             # Tags
             {
@@ -166,7 +172,9 @@ def post_provision():
     stackset_id = response["StackSetId"]
 
     region = params["region"]
-    region_params = get_params_for_region(table_name=regional_metadata_table, region=region)
+    region_params = get_params_for_region(
+        table_name=regional_metadata_table, region=region
+    )
 
     client.create_stack_instances(
         StackSetName=stackset_id,
@@ -227,7 +235,8 @@ def get_wait():
         # Stack instances are in progress of being updated
         if (
             instance["Status"] != SYNCHRONIZED_STATUS
-            or instance["StackInstanceStatus"]["DetailedStatus"] != SUCCESS_DETAILED_STATUS
+            or instance["StackInstanceStatus"]["DetailedStatus"]
+            != SUCCESS_DETAILED_STATUS
         ):
             raise StackSetExecutionInProgressException()
 
@@ -247,7 +256,9 @@ def post_notify_success():
 
     # Get config from dynamodb
     dynamodb_client = boto3.client("dynamodb")
-    state_data = dynamodb_client.get_item(TableName=state_table, Key={"stacksetID": {"S": stackset_id}})["Item"]
+    state_data = dynamodb_client.get_item(
+        TableName=state_table, Key={"stacksetID": {"S": stackset_id}}
+    )["Item"]
 
     for instance_data in fetch_stackset_instances(stackset_id=stackset_id):
         template_data = {
@@ -256,7 +267,9 @@ def post_notify_success():
             "instance_type": instance_data["instanceType"],
             "instance_name": instance_data["instanceName"],
             "ip": instance_data["private_ip"],
-            "expiry": datetime.fromisoformat(state_data["expiry"]["S"]).strftime("%-I %p %d %B"),
+            "expiry": datetime.fromisoformat(state_data["expiry"]["S"]).strftime(
+                "%-I %p %d %B"
+            ),
         }
 
         send_email(
@@ -286,7 +299,9 @@ def post_notify_failure():
     # send SNS failure notification
     send_sns_message(topic_arn=sns_error_topic_arn, stackset_id=stackset_id)
 
-    for instance_data in fetch_stackset_instances(stackset_id=stackset_id, acceptable_statuses=None):
+    for instance_data in fetch_stackset_instances(
+        stackset_id=stackset_id, acceptable_statuses=None
+    ):
         template_data = {
             "region": instance_data["region"],
             "os": instance_data["operatingSystemName"],
@@ -304,7 +319,9 @@ def post_notify_failure():
         )
         current_app.logger.info(response)
 
-        current_app.logger.info(f"Stackset {stackset_id} is due for cleanup, passing it to the cleanup state machine")
+        current_app.logger.info(
+            f"Stackset {stackset_id} is due for cleanup, passing it to the cleanup state machine"
+        )
         initiate_stackset_deprovisioning(
             stackset_id=stackset_id,
             cleanup_sfn_arn=cleanup_sfn_arn,
@@ -381,3 +398,72 @@ def post_cleanup_complete():
     current_app.logger.info(response)
 
     return response
+
+
+def post_cleanup_schedule():
+    # read in data from environment
+    project_name = current_app.config["PROJECT_NAME"]
+    notification_email = current_app.config["NOTIFICATION_EMAIL"]
+    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
+    cleanup_notice_notification_hours = json.loads(
+        current_app.config["CLEANUP_NOTICE_NOTIFICATION_HOURS"]
+    )
+    cleanup_sfn_arn = current_app.config["CLEANUP_SFN_ARN"]
+
+    dynamodb_client = boto3.client("dynamodb")
+    results = dynamodb_client.scan(
+        TableName=state_table,
+    )
+    current_app.logger.debug("Current state data: %s", results)
+
+    # Make provisions for paging of the results
+    now = datetime.now(timezone.utc)
+    for entry in results["Items"]:
+        stackset_id = entry["stacksetID"]["S"]
+        owner_email = entry["email"]["S"]
+        expiry = datetime.fromisoformat(entry["expiry"]["S"])
+
+        if expiry <= now:
+            # If instance is expired, kick off cleanup
+            current_app.logger.info(
+                f"Stackset {stackset_id} is due for cleanup, passing it to the cleanup state machine"
+            )
+            response = initiate_stackset_deprovisioning(
+                stackset_id=stackset_id,
+                cleanup_sfn_arn=cleanup_sfn_arn,
+                owner_email=owner_email,
+            )
+            current_app.logger.info(f"SFN cleanup execution response: {response}")
+            continue
+
+        for notice in cleanup_notice_notification_hours:
+            window_start = now + timedelta(hours=notice)
+            window_end = now + timedelta(hours=notice - 1)
+
+            # current_app.logger.info(f"{window_start} {now} {window_end}")
+            if window_start < now < window_end:
+                current_app.logger.info(
+                    f"Sending advance termination notice for Stackset {stackset_id}"
+                )
+
+                # send notifications
+                for instance_data in fetch_stackset_instances(stackset_id=stackset_id):
+                    template_data = {
+                        "instance_name": instance_data["instanceName"],
+                        "region": instance_data["region"],
+                        "os": instance_data["operatingSystemName"],
+                        "instance_type": instance_data["instanceType"],
+                        "ip": instance_data["private_ip"],
+                        "expiry": expiry.strftime("%-I %p %d %B"),
+                    }
+
+                    response = send_email(
+                        subject="Your compute instance will be deprovisioned soon",
+                        template_name="cleanup_notice",
+                        template_data=template_data,
+                        source_email=f"Instance Cleanup ({project_name}) <{notification_email}>",
+                        to_email=owner_email,
+                    )
+                    current_app.logger.info(f"Sending notice email: {response}")
+
+    return {}, 204

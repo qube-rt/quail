@@ -20,3 +20,7 @@ def register_routes(blueprint):
     blueprint.add_url_rule(
         "/cleanupComplete", "cleanup-complete", view_func=views.post_cleanup_complete, methods=["post"]
     )
+    blueprint.add_url_rule(
+        "/cleanupSchedule", "cleanup-schedule", view_func=views.post_cleanup_schedule, methods=["post"]
+    )
+

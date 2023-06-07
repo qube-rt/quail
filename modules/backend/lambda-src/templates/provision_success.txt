@@ -1,9 +1,0 @@
-The following compute instance has been provisioned successfully:
-
-* name {{instance_name}}
-* region: {{region}}
-* operation system: {{os}}
-* type: {{instance_type}}
-* ip address: {{ip}}
-
-It's ready for immediate use and available until {{expiry}}.

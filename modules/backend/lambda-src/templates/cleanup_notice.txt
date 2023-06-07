@@ -1,9 +1,0 @@
-This is an advance notice that the following compute instance is due to be decommissioned up at {{expiry}}:
-
-* name {{instance_name}}
-* region: {{region}}
-* operation system: {{os}}
-* type: {{instance_type}}
-* ip address: {{ip}}
-
-If you wish to continue using the machine past that date please get in touch with the admin team.

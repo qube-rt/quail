@@ -1,6 +1,6 @@
 # Using a data source to avoid dependency cycles
 data "aws_sfn_state_machine" "cleanup_state_machine" {
-  name     = "${var.project-name}-cleanup-state-machine"
+  name = "${var.project-name}-cleanup-state-machine"
 }
 
 # CloudWatch log group
@@ -106,7 +106,7 @@ data "aws_iam_policy_document" "private_api" {
     actions = [
       "dynamodb:PutItem",
       "dynamodb:GetItem",
-            "dynamodb:DeleteItem",
+      "dynamodb:DeleteItem", "dynamodb:Scan"
     ]
     resources = [aws_dynamodb_table.dynamodb-state-table.arn]
   }
@@ -195,10 +195,11 @@ resource "aws_lambda_function" "private_api" {
       "TAG_CONFIG"                            = jsonencode(var.instance-tags)
       "CFN_DATA_BUCKET"                       = var.cfn_data_bucket
 
-      "NOTIFICATION_EMAIL"  = var.notification-email
-      "ADMIN_EMAIL"         = var.admin-email
-      "SNS_ERROR_TOPIC_ARN" = local.sns_error_topic_arn
-      "CLEANUP_SFN_ARN"     = data.aws_sfn_state_machine.cleanup_state_machine.arn
+      "NOTIFICATION_EMAIL"                = var.notification-email
+      "ADMIN_EMAIL"                       = var.admin-email
+      "SNS_ERROR_TOPIC_ARN"               = local.sns_error_topic_arn
+      "CLEANUP_SFN_ARN"                   = data.aws_sfn_state_machine.cleanup_state_machine.arn
+      "CLEANUP_NOTICE_NOTIFICATION_HOURS" = jsonencode(var.cleanup-notice-notification-hours)
 
       "FLASK_DEBUG"                  = 1
       "FLASK_ENV"                    = "development"

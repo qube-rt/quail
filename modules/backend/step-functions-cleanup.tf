@@ -119,7 +119,7 @@ resource "aws_sfn_state_machine" "cleanup_state_machine" {
         "Type" : "Task",
         "Resource" : "arn:aws:states:::lambda:invoke.waitForTaskToken",
         "HeartbeatSeconds" : 30,
-          "Parameters" : {
+        "Parameters" : {
           "FunctionName" : "${aws_lambda_function.private_api.arn}:$LATEST",
           "Payload" : {
             "resourcePath" : "/cleanupComplete",
