@@ -132,29 +132,6 @@ resource "aws_cloudwatch_metric_alarm" "cleanup_sfn_throttled" {
   tags = local.resource_tags
 }
 
-# Lambda functions not covered by state machines or API Gateway
-resource "aws_cloudwatch_metric_alarm" "cleanup_scheduled_error" {
-  alarm_name = "${var.project-name}-cleanup-scheduled-lambda-error"
-
-  namespace           = "AWS/Lambda"
-  metric_name         = "Errors"
-  statistic           = "Sum"
-  comparison_operator = "GreaterThanOrEqualToThreshold"
-  threshold           = 1
-  datapoints_to_alarm = 1
-  evaluation_periods  = 1
-  period              = 300
-  dimensions = {
-    "FunctionName" = aws_lambda_function.cleanup_scheduled_lambda.function_name
-  }
-  treat_missing_data = "notBreaching"
-
-  actions_enabled = true
-  alarm_actions   = [local.sns_error_topic_arn]
-
-  tags = local.resource_tags
-}
-
 # API Gateway errors
 resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx_response" {
   alarm_name = "${var.project-name}-api-5xx-responses"
@@ -168,7 +145,7 @@ resource "aws_cloudwatch_metric_alarm" "api_gateway_5xx_response" {
   evaluation_periods  = 1
   period              = 300
   dimensions = {
-    "ApiId" = aws_apigatewayv2_api.main.id
+    "ApiId" = aws_apigatewayv2_api.public.id
   }
   treat_missing_data = "notBreaching"
 

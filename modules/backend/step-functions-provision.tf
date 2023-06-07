@@ -39,14 +39,8 @@ data "aws_iam_policy_document" "provision_state_machine_role_policy_document" {
       "lambda:InvokeFunction",
     ]
     resources = [
-      aws_lambda_function.provision_lambda.arn,
-      "${aws_lambda_function.provision_lambda.arn}:*",
-      aws_lambda_function.wait_lambda.arn,
-      "${aws_lambda_function.wait_lambda.arn}:*",
-      aws_lambda_function.notify_success_lambda.arn,
-      "${aws_lambda_function.notify_success_lambda.arn}:*",
-      aws_lambda_function.notify_failure_lambda.arn,
-      "${aws_lambda_function.notify_failure_lambda.arn}:*",
+      aws_lambda_function.private_api.arn,
+      "${aws_lambda_function.private_api.arn}:*",
     ]
   }
 }
@@ -65,80 +59,112 @@ resource "aws_sfn_state_machine" "provision_state_machine" {
   name     = "${var.project-name}-provision-state-machine"
   role_arn = aws_iam_role.iam_role_for_provision_state_machine.arn
 
-  definition = <<EOF
-{
-  "Comment": "A instance provisioning workflow",
-  "StartAt": "Provision",
-  "States": {
-    "Provision": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.provision_lambda.arn}:$LATEST",
-        "Payload": {
-          "Input.$": "$"
-        }
+  definition = jsonencode({
+    "Comment" : "A instance provisioning workflow",
+    "StartAt" : "Provision",
+    "States" : {
+      "Provision" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke.waitForTaskToken",
+        "TimeoutSeconds" : 300,
+        "HeartbeatSeconds" : 60,
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.private_api.arn}:$LATEST",
+          "Payload" : {
+            "resourcePath" : "/provision",
+            "path" : "/provision",
+            "headers" : {
+              "Content-Type" : "application/json",
+              "TaskToken.$" : "$$.Task.Token"
+            },
+            "httpMethod" : "POST",
+            "body.$" : "States.JsonToString($)"
+          },
+        },
+        "Next" : "Wait"
       },
-      "Next": "Wait"
-    },
-    "Wait": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.wait_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id",
-          "stackset_email.$": "$.Payload.stackset_email",
-          "error_if_no_operations": true
-        }
+      "Wait" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke.waitForTaskToken",
+        "TimeoutSeconds" : 1800,
+        "HeartbeatSeconds" : 40,
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.private_api.arn}:$LATEST",
+          "Payload" : {
+            "resourcePath" : "/wait",
+            "path" : "/wait",
+            "httpMethod" : "GET",
+            "headers" : {
+              "Content-Type" : "application/json",
+              "TaskToken.$" : "$$.Task.Token"
+            },
+            "queryStringParameters" : {
+              "stackset_email.$" : "$.stackset_email",
+              "stackset_id.$" : "$..stackset_id",
+              "error_if_no_operations" : "1"
+            }
+          }
+        },
+        "ResultPath" : null,
+        "Next" : "Notify Success",
+        "Retry" : [
+          {
+            "ErrorEquals" : [
+              "StackSetExecutionInProgressException"
+            ],
+            "IntervalSeconds" : 30,
+            "BackoffRate" : 1,
+            "MaxAttempts" : 20
+          }
+        ],
+        "Catch" : [
+          {
+            "ErrorEquals" : [
+              "StackSetExecutionInProgressException"
+            ],
+            "ResultPath" : null,
+            "Next" : "Notify Failure"
+          }
+        ]
       },
-      "ResultPath": null,
-      "Next": "Notify Success",
-      "Retry": [
-        {
-          "ErrorEquals": [
-            "StackSetExecutionInProgressException"
-          ],
-          "IntervalSeconds": 30,
-          "BackoffRate": 1,
-          "MaxAttempts": 40
-        }
-      ],
-      "Catch": [ 
-        {
-          "ErrorEquals": [
-            "StackSetExecutionInProgressException"
-          ],
-          "ResultPath": null,
-          "Next": "Notify Failure"
-        }
-      ]
-    },
-    "Notify Success": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.notify_success_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id",
-          "stackset_email.$": "$.Payload.stackset_email"
-        }
+      "Notify Success" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke.waitForTaskToken",
+        "HeartbeatSeconds" : 30,
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.private_api.arn}:$LATEST",
+          "Payload" : {
+            "resourcePath" : "/notifySuccess",
+            "path" : "/notifySuccess",
+            "headers" : {
+              "Content-Type" : "application/json",
+              "TaskToken.$" : "$$.Task.Token"
+            },
+            "httpMethod" : "POST",
+            "body.$" : "States.JsonToString($)"
+          },
+        },
+        "End" : true
       },
-      "End": true
-    },
-    "Notify Failure": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.notify_failure_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id",
-          "stackset_email.$": "$.Payload.stackset_email"
-        }
-      },
-      "End": true
+      "Notify Failure" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke.waitForTaskToken",
+        "HeartbeatSeconds" : 30,
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.private_api.arn}:$LATEST",
+          "Payload" : {
+            "resourcePath" : "/notifyFailure",
+            "path" : "/notifyFailure",
+            "headers" : {
+              "Content-Type" : "application/json",
+              "TaskToken.$" : "$$.Task.Token"
+            },
+            "httpMethod" : "POST",
+            "body.$" : "States.JsonToString($)"
+          },
+        },
+        "End" : true
+      }
     }
-  }
-}
-EOF
+  })
 }

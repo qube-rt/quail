@@ -39,12 +39,8 @@ data "aws_iam_policy_document" "cleanup_state_machine_role_policy_document" {
       "lambda:InvokeFunction",
     ]
     resources = [
-      aws_lambda_function.cleanup_instances_lambda.arn,
-      "${aws_lambda_function.cleanup_instances_lambda.arn}:*",
-      aws_lambda_function.wait_lambda.arn,
-      "${aws_lambda_function.wait_lambda.arn}:*",
-      aws_lambda_function.cleanup_complete_lambda.arn,
-      "${aws_lambda_function.cleanup_complete_lambda.arn}:*",
+      aws_lambda_function.private_api.arn,
+      "${aws_lambda_function.private_api.arn}:*",
     ]
   }
 }
@@ -62,58 +58,82 @@ resource "aws_sfn_state_machine" "cleanup_state_machine" {
   role_arn = aws_iam_role.iam_role_for_cleanup_state_machine.arn
   tags     = local.resource_tags
 
-  definition = <<EOF
-{
-  "Comment": "The StackSet cleanup workflow",
-  "StartAt": "Remove Instances",
-  "States": {
-    "Remove Instances": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.cleanup_instances_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.stackset_id",
-          "stackset_email.$": "$.stackset_email"
-        }
+  definition = jsonencode({
+    "Comment" : "The StackSet cleanup workflow",
+    "StartAt" : "Remove Instances",
+    "States" : {
+      "Remove Instances" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke.waitForTaskToken",
+        "HeartbeatSeconds" : 60,
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.private_api.arn}:$LATEST",
+          "Payload" : {
+            "resourcePath" : "/cleanupStart",
+            "path" : "/cleanupStart",
+            "headers" : {
+              "Content-Type" : "application/json",
+              "TaskToken.$" : "$$.Task.Token"
+            },
+            "httpMethod" : "POST",
+            "body.$" : "States.JsonToString($)"
+          },
+        },
+        "Next" : "Wait"
       },
-      "Next": "Wait"
-    },
-    "Wait": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.wait_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id",
-          "error_if_no_operations": false
-        }
+      "Wait" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke.waitForTaskToken",
+        "TimeoutSeconds" : 1800,
+        "HeartbeatSeconds" : 40,
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.private_api.arn}:$LATEST",
+          "Payload" : {
+            "resourcePath" : "/wait",
+            "path" : "/wait",
+            "httpMethod" : "GET",
+            "headers" : {
+              "Content-Type" : "application/json",
+              "TaskToken.$" : "$$.Task.Token"
+            },
+            "queryStringParameters" : {
+              "stackset_id.$" : "$.stackset_id",
+              "error_if_no_operations" : "0"
+            }
+          }
+        },
+        "ResultPath" : null,
+        "Next" : "Remove StackSet",
+        "Retry" : [
+          {
+            "ErrorEquals" : [
+              "StackSetExecutionInProgressException"
+            ],
+            "IntervalSeconds" : 60,
+            "BackoffRate" : 1,
+            "MaxAttempts" : 10
+          }
+        ]
       },
-      "ResultPath": null,
-      "Next": "Remove StackSet",
-      "Retry": [
-        {
-          "ErrorEquals": [
-            "StackSetExecutionInProgressException"
-          ],
-          "IntervalSeconds": 60,
-          "BackoffRate": 1,
-          "MaxAttempts": 10
-        }
-      ]
-    },
-    "Remove StackSet": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "${aws_lambda_function.cleanup_complete_lambda.arn}:$LATEST",
-        "Payload": {
-          "stackset_id.$": "$.Payload.stackset_id"
-        }
-      },
-      "End": true
+      "Remove StackSet" : {
+        "Type" : "Task",
+        "Resource" : "arn:aws:states:::lambda:invoke.waitForTaskToken",
+        "HeartbeatSeconds" : 30,
+        "Parameters" : {
+          "FunctionName" : "${aws_lambda_function.private_api.arn}:$LATEST",
+          "Payload" : {
+            "resourcePath" : "/cleanupComplete",
+            "path" : "/cleanupComplete",
+            "headers" : {
+              "Content-Type" : "application/json",
+              "TaskToken.$" : "$$.Task.Token"
+            },
+            "httpMethod" : "POST",
+            "body.$" : "States.JsonToString($)"
+          },
+        },
+        "End" : true
+      }
     }
-  }
-}
-EOF
+  })
 }
