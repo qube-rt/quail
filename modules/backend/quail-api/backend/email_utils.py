@@ -2,6 +2,7 @@ import boto3
 from jinja2 import Environment, FileSystemLoader, select_autoescape, StrictUndefined
 from flask import current_app
 
+
 def render_template(template_name, template_data, template_path="./templates"):
     env = Environment(
         loader=FileSystemLoader(searchpath=template_path),
