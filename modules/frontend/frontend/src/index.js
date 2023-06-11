@@ -3,9 +3,9 @@ import 'react-app-polyfill/stable';
 
 import React from 'react';
 import ReactDOM from 'react-dom';
+import { BrowserRouter } from 'react-router-dom';
 
 import { CssBaseline } from '@mui/material';
-import { SnackbarProvider } from 'notistack';
 
 import App from './App';
 import CustomThemeProvider from './themes/CustomThemeProvider';
@@ -16,10 +16,10 @@ ReactDOM.render(
   // Unfortunately, Theming clashes with Strict mode
   <React.StrictMode>
     <CustomThemeProvider>
-      <SnackbarProvider anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} autoHideDuration={5000}>
-        <CssBaseline />
+      <CssBaseline />
+      <BrowserRouter>
         <App />
-      </SnackbarProvider>
+      </BrowserRouter>
     </CustomThemeProvider>
   </React.StrictMode>,
 

@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
 
+import { useOktaAuth } from '@okta/okta-react';
 import { makeStyles } from '@mui/styles';
 import {
   AppBar, Toolbar, Button, FormControlLabel, Switch,
@@ -7,7 +8,7 @@ import {
 import { Brightness4 as Brightness4Icon } from '@mui/icons-material';
 
 import { CustomThemeContext } from '../themes/CustomThemeProvider';
-import { getUsernameFromJWT, getGroupFromJWT } from '../utils';
+import { getUserData } from '../utils';
 import logo from '../logo.png';
 
 const useStyles = makeStyles(() => ({
@@ -34,12 +35,13 @@ const useStyles = makeStyles(() => ({
   },
 }));
 
-export default function TopAppBar(props) {
+const TopAppBar = ({ onReload }) => {
   const classes = useStyles();
 
-  const { onLogout, onReload } = props;
-  const username = getUsernameFromJWT();
-  const group = getGroupFromJWT();
+  const { oktaAuth } = useOktaAuth();
+  const logout = async () => oktaAuth.signOut();
+
+  const { username, groups } = getUserData();
 
   const { currentTheme, setTheme } = useContext(CustomThemeContext);
   const isDark = Boolean(currentTheme === 'dark');
@@ -61,16 +63,18 @@ export default function TopAppBar(props) {
         </button>
         <span>
           {/* eslint-disable-next-line react/jsx-one-expression-per-line */}
-          Logged in as: <span className={classes.username}>{username} ({group})</span>
+          Logged in as: <span className={classes.username}>{username} ({groups})</span>
         </span>
         <div>
           <FormControlLabel
             control={<Switch checked={isDark} onChange={handleThemeChange} />}
             label={<Brightness4Icon className={classes.toggleIcon} />}
           />
-          <Button onClick={onLogout} color="inherit">Logout</Button>
+          <Button onClick={logout} color="inherit">Logout</Button>
         </div>
       </Toolbar>
     </AppBar>
   );
-}
+};
+
+export default TopAppBar;

@@ -7,7 +7,7 @@ from flask import current_app, request
 from marshmallow import ValidationError
 
 from backend.aws_utils import (
-    get_permissions_for_group,
+    get_permissions_for_groups,
     get_claims,
     get_owned_stacksets,
     get_instance_details,
@@ -26,13 +26,13 @@ from backend.serializers import instance_post_serializer, instance_patch_seriali
 
 
 def get_params():
-    group = itemgetter("group")(get_claims(request=request))
+    groups = itemgetter("groups")(get_claims(request=request))
 
     # read in data from config
     permissions_table = current_app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"]
 
     # Get config from dynamodb
-    permissions = get_permissions_for_group(table_name=permissions_table, group_name=group)
+    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
 
     # Restructure the permissions
     del permissions["operating_systems"]
@@ -41,7 +41,7 @@ def get_params():
 
 
 def get_instances():
-    email, group, is_superuser = itemgetter("email", "group", "is_superuser")(get_claims(request=request))
+    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(get_claims(request=request))
 
     # read in data from environment
     state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
@@ -49,7 +49,7 @@ def get_instances():
 
     # Get config from dynamodb
     stacksets = get_owned_stacksets(table_name=state_table, email=email, is_superuser=is_superuser)
-    permissions = get_permissions_for_group(table_name=permissions_table, group_name=group)
+    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
     max_extension_count = permissions["max_extension_count"]
     instances = get_instance_details(
         stacksets=stacksets,
@@ -62,7 +62,7 @@ def get_instances():
 
 def post_instances():
     # Get auth params
-    email, group, username, is_superuser, claims = itemgetter("email", "group", "username", "is_superuser", "claims")(
+    email, groups, username, is_superuser, claims = itemgetter("email", "groups", "username", "is_superuser", "claims")(
         get_claims(request=request)
     )
 
@@ -75,7 +75,7 @@ def post_instances():
     provision_sfn_arn = current_app.config["PROVISION_SFN_ARN"]
 
     # Get params the user has permissions for
-    permissions = get_permissions_for_group(table_name=permissions_table, group_name=group)
+    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
 
     # Validate the user provided params, raises a ValidationException if user has no permissions
     current_account_id = get_account_id()
@@ -118,7 +118,7 @@ def post_instances():
     sfn_execution_arn = provision_stackset(
         provision_sfn_arn=provision_sfn_arn,
         email=stack_email,
-        group=group,
+        groups=groups,
         username=stack_username,
         user=claims,
         **data,
@@ -178,7 +178,7 @@ def post_instance_stop(stackset_id):
 
 
 def patch_instance(stackset_id):
-    email, group, is_superuser = itemgetter("email", "group", "is_superuser")(get_claims(request=request))
+    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(get_claims(request=request))
 
     # Get body params
     payload = request.json
@@ -193,7 +193,7 @@ def patch_instance(stackset_id):
         raise UnauthorizedForInstanceError()
 
     # Get params the user has permissions for and sanitize input
-    permissions = get_permissions_for_group(table_name=permissions_table, group_name=group)
+    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
     serializer = instance_patch_serializer(
         instance_types=permissions["instance_types"],
     )
@@ -210,7 +210,7 @@ def patch_instance(stackset_id):
 
 
 def post_instance_extend(stackset_id):
-    email, group, is_superuser = itemgetter("email", "group", "is_superuser")(get_claims(request=request))
+    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(get_claims(request=request))
 
     # read in data from environment
     state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
@@ -222,7 +222,7 @@ def post_instance_extend(stackset_id):
         raise UnauthorizedForInstanceError()
 
     # get user group permissions
-    permissions = get_permissions_for_group(table_name=permissions_table, group_name=group)
+    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
     max_extension_count = permissions["max_extension_count"]
 
     # check user hasn't exceeded the max number of extensions

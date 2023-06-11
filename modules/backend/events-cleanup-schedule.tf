@@ -1,7 +1,7 @@
 # Trigger every hour
 resource "aws_cloudwatch_event_rule" "every_hour" {
-  name        = "every-hour"
-  description = "Fires every hour"
+  name                = "every-hour"
+  description         = "Fires every hour"
   schedule_expression = "rate(1 hour)"
   tags                = local.resource_tags
 }

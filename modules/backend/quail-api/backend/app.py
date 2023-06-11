@@ -121,7 +121,7 @@ def register_errorhandlers(app):
             )
 
     def render_error(error):
-        app.logger.error("render_error handler: %s", error)
+        app.logger.error("render_error handler: %s", error, exc_info=True)
         send_step_function_error(error)
         # If a HTTPException, pull the `code` attribute; default to 500
         error_code = getattr(error, "code", 500)

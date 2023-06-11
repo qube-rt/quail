@@ -38,16 +38,6 @@ variable "external-sns-failure-topic-arn" {
   description = "If set, this topic will be notified of provisioning failures or lambda execution failures. If unset, a new topic will be created"
 }
 
-variable "sso-apps-metadata" {
-  type        = map(any)
-  description = "Map of user-group name to metadata url of the associated SSO SAML app, required for the Cognito SAML identity providers."
-}
-
-variable "logout-url" {
-  type        = string
-  description = "User will be redirected to this url upon logout"
-}
-
 variable "support-localhost-urls" {
   type        = bool
   default     = false
@@ -90,4 +80,19 @@ variable "resource-tags" {
   type        = map(string)
   default     = {}
   description = "Tags to assign to resources provisioned by terraform. Apart from the listed tags, a {part_of: $${project-name}} tag is assigned to all resources."
+}
+
+variable "okta-org-name" {
+  type        = string
+  description = "Okta Organization name"
+}
+
+variable "okta-base-url" {
+  type        = string
+  description = "Okta Base Organization URL"
+}
+
+variable "okta-api-token" {
+  type        = string
+  description = "Okta API Token"
 }

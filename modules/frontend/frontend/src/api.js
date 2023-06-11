@@ -1,40 +1,22 @@
-import baseAxios from 'axios';
-import queryString from 'query-string';
+import { axiosInstance } from './Axios';
 
-import Config from './config';
-import appAxios from './axios';
+const getParams = async () => axiosInstance.get('param');
 
-const getCognitoToken = async ({
-  receivedCode, codeVerifier,
-}) => baseAxios.post(Config.auth.tokenEndpointUrl, queryString.stringify({
-  grant_type: 'authorization_code',
-  client_id: Config.auth.cognitoClientId,
-  redirect_uri: Config.auth.redirectUrl,
-  code: receivedCode,
-  code_challenge_method: 'S256',
-  code_verifier: codeVerifier,
-}), {
-  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-});
+const getInstances = async () => axiosInstance.get('instance');
 
-const getParams = async () => appAxios.get('param');
+const deleteInstance = async ({ instanceId }) => axiosInstance.delete(`instance/${instanceId}`);
 
-const getInstances = async () => appAxios.get('instance');
+const extendInstance = async ({ instanceId }) => axiosInstance.post(`instance/${instanceId}/extend`);
 
-const deleteInstance = async ({ instanceId }) => appAxios.delete(`instance/${instanceId}`);
+const startInstance = async ({ instanceId }) => axiosInstance.post(`instance/${instanceId}/start`);
 
-const extendInstance = async ({ instanceId }) => appAxios.post(`instance/${instanceId}/extend`);
+const stopInstance = async ({ instanceId }) => axiosInstance.post(`instance/${instanceId}/stop`);
 
-const startInstance = async ({ instanceId }) => appAxios.post(`instance/${instanceId}/start`);
+const updateInstance = async ({ instanceId, instanceType }) => axiosInstance.patch(`instance/${instanceId}`, { instanceType });
 
-const stopInstance = async ({ instanceId }) => appAxios.post(`instance/${instanceId}/stop`);
-
-const updateInstance = async ({ instanceId, instanceType }) => appAxios.patch(`instance/${instanceId}`, { instanceType });
-
-const createInstance = async (payload) => appAxios.post('instance', payload);
+const createInstance = async (payload) => axiosInstance.post('instance', payload);
 
 const API = {
-  getCognitoToken,
   getParams,
   getInstances,
   deleteInstance,

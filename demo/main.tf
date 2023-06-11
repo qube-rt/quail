@@ -13,7 +13,7 @@ locals {
   }
 
   permission-data = {
-    public = {
+    quail-developers = {
       instance-types = ["t3.nano", "t3.micro", "t3.small"],
       operating-systems = [
         {
@@ -69,7 +69,7 @@ locals {
       max-days-to-expiry  = "7",
       max-extension-count = "3",
     },
-    private = {
+    quail-quants = {
       instance-types = ["t3.micro", "t3.small"],
       operating-systems = [
         {
@@ -134,11 +134,11 @@ module "backend" {
   external-sns-failure-topic-arn    = var.external-sns-failure-topic-arn
 
   # Auth vars
-  sso-apps-metadata      = var.sso-apps-metadata
-  logout-url             = var.logout-url
   support-localhost-urls = var.support-localhost-urls
   hosting-domain         = var.hosting-domain
   hosted-zone-name       = var.hosted-zone-name
+  jwt-issuer = module.okta-app.auth_server_issuer
+  jwt-audience = [module.okta-app.oauth_app_client_id]
 
   # Tag config
   instance-tags = var.instance-tags
@@ -163,11 +163,12 @@ module "frontend" {
   # Tag config
   resource-tags = var.resource-tags
 
-  # Cognito config
+  # Application config
   api-root-url      = module.backend.api-root-url
-  cognito-domain    = module.backend.cognito-domain
-  cognito-client-id = module.backend.cognito-client-id
-  logout-url        = var.logout-url
+
+  # Okta Auth config
+  jwt-issuer = module.okta-app.auth_server_issuer
+  jwt-client-id = module.okta-app.oauth_app_client_id
 }
 
 module "frontend-ecs-hosting" {
@@ -220,4 +221,17 @@ module "utilities-regional-secondary" {
 
   # Tag config
   resource-tags = var.resource-tags
+}
+
+module "okta-app" {
+  source = "../modules/okta-app"
+
+  project-name = var.project-name
+  okta-groups = module.okta-data.okta-groups
+}
+
+module "okta-data" {
+  source = "../modules/okta-data"
+
+  project-name = var.project-name
 }

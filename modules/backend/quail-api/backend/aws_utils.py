@@ -5,6 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 
 import boto3
+from flask import current_app
 
 from backend.exceptions import CrossAccountStackSetException, PermissionsMissing
 
@@ -57,72 +58,99 @@ def get_account_id():
     return boto3.client("sts").get_caller_identity().get("Account")
 
 
-def get_claims(request):
+def get_claims_list(value):
+    # Accepts a string representation of a list, returns a python list
+    return value[1:-1].split(" ")
+
+
+def get_claims(request, admin_group_name="quail-admins"):
     context = json.loads(request.headers["X-Amzn-Request-Context"])
     claims = context["authorizer"]["jwt"]["claims"]
 
     if "email" not in claims or not claims["email"]:
         raise ValueError("The JWT is missing the 'email' claim value.")
 
-    if "profile" not in claims or not claims["profile"]:
-        raise ValueError("The JWT is missing the 'profile' claim value.")
+    if "groups" not in claims or not claims["groups"]:
+        raise ValueError("The JWT is missing the 'groups' claim value.")
 
-    if "nickname" not in claims or not claims["nickname"]:
-        raise ValueError("The JWT is missing the 'nickname' claim value.")
+    if "name" not in claims or not claims["name"]:
+        raise ValueError("The JWT is missing the 'name' claim value.")
 
-    is_superuser = claims.get("custom:is_superuser", False) == "1"
+    groups = get_claims_list(claims["groups"])
+    is_superuser = admin_group_name in groups
 
     return {
         "email": claims["email"],
-        "group": claims["profile"],
-        "username": claims["nickname"],
+        "groups": groups,
+        "username": claims["name"],
         "is_superuser": is_superuser,
         "claims": claims,
     }
 
 
-def get_permissions_for_group(table_name, group_name):
+def get_permissions_for_groups(table_name, groups):
     client = boto3.client("dynamodb")
-    result = client.get_item(TableName=table_name, Key={"group": {"S": group_name}})
 
-    if "Item" not in result:
-        raise PermissionsMissing(message=f"The group '{group_name}' does not have any permissions associated with it.")
-
-    item = result["Item"]
     result = {
-        "instance_types": item["instanceTypes"]["SS"],
-        "operating_systems": json.loads(item["operatingSystems"]["S"]),
-        # Even though DynamoDB treats Number type as numeric internally, but accepts and returns them as strings,
-        # hence the need to cast it explicitly
-        # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes
-        "max_days_to_expiry": int(item["maxDaysToExpiry"]["N"]),
-        "max_instance_count": int(item["maxInstanceCount"]["N"]),
-        "max_extension_count": int(item["maxExtensionCount"]["N"]),
+        "instance_types": [],
+        "operating_systems": [],
+        "max_days_to_expiry": 0,
+        "max_instance_count": 0,
+        "max_extension_count": 0,
     }
 
+    for group_name in groups:
+        fetched = client.get_item(TableName=table_name, Key={"group": {"S": group_name}})
+
+        if "Item" not in fetched:
+            current_app.logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
+            continue
+
+        item = fetched["Item"]
+
+        result = {
+            "instance_types": list(set([*result["instance_types"], *item["instanceTypes"]["SS"]])),
+            "operating_systems": [*result["operating_systems"], *json.loads(item["operatingSystems"]["S"])],
+            # Even though DynamoDB treats Number type as numeric internally, but accepts and returns them as strings,
+            # hence the need to cast it explicitly
+            # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes
+            "max_days_to_expiry": max([result["max_days_to_expiry"], int(item["maxDaysToExpiry"]["N"])]),
+            "max_instance_count": max([result["max_instance_count"], int(item["maxInstanceCount"]["N"])]),
+            "max_extension_count": max([result["max_extension_count"], int(item["maxExtensionCount"]["N"])]),
+        }
+
     region_map = defaultdict(list)
-    for item in result["operating_systems"]:
-        for region_name in item["region-map"].keys():
-            region_map[region_name] += [item["name"]]
+    for os_item in result["operating_systems"]:
+        for region_name in os_item["region-map"].keys():
+            region_map[region_name] += [os_item["name"]]
 
     result["region_map"] = region_map
 
     return result
 
 
-def get_os_config(table_name, group_name, os_name):
+def get_os_config(table_name, groups, os_name):
     client = boto3.client("dynamodb")
-    result = client.get_item(TableName=table_name, Key={"group": {"S": group_name}})
 
-    if "Item" not in result:
-        raise PermissionsMissing(message=f"The group '{group_name}' does not have any permissions associated with it.")
+    result = []
+    for group_name in groups:
+        fetched = client.get_item(TableName=table_name, Key={"group": {"S": group_name}})
 
-    os_configs = json.loads(result["Item"]["operatingSystems"]["S"])
-    target_configs = [config for config in os_configs if config["name"] == os_name]
-    if not target_configs:
-        raise PermissionsMissing(message=f"The group '{group_name}' does not have any permissions associated with it.")
+        if "Item" not in fetched:
+            current_app.logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
+            continue
 
-    return target_configs[0]
+        os_configs = json.loads(fetched["Item"]["operatingSystems"]["S"])
+        target_configs = [config for config in os_configs if config["name"] == os_name]
+        result = [*result, *target_configs]
+
+    if not result:
+        raise PermissionsMissing(message=f"Could not find the permission for '{os_name}' in groups: {groups}.")
+
+    if len(result) > 1:
+        current_app.logger.info(f"Multiple permissions for '{os_name}' in groups: {groups}.")
+
+    return result[0]
 
 
 def get_params_for_region(table_name, region):
@@ -152,7 +180,7 @@ def provision_stackset(
     user,
     username,
     email,
-    group,
+    groups,
 ):
     sfn_client = boto3.client("stepfunctions")
     response = sfn_client.start_execution(
@@ -168,7 +196,7 @@ def provision_stackset(
                 "user": user,
                 "username": username,
                 "email": email,
-                "group": group,
+                "groups": groups,
             }
         ),
     )

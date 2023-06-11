@@ -61,15 +61,15 @@ data "aws_iam_policy_document" "apigateway_assume_role" {
 }
 
 # Authorizers
-resource "aws_apigatewayv2_authorizer" "cognito-jwt" {
+resource "aws_apigatewayv2_authorizer" "okta-jwt" {
   api_id           = aws_apigatewayv2_api.public.id
   authorizer_type  = "JWT"
   identity_sources = ["$request.header.Authorization"]
-  name             = "cognito-jwt-authorizer"
+  name             = "okta-jwt-authorizer"
 
   jwt_configuration {
-    audience = [aws_cognito_user_pool_client.main.id]
-    issuer   = "https://cognito-idp.${var.region-primary}.amazonaws.com/${aws_cognito_user_pool_client.main.user_pool_id}"
+    audience = var.jwt-audience
+    issuer   = var.jwt-issuer
   }
 }
 
@@ -97,7 +97,7 @@ resource "aws_apigatewayv2_route" "public_api_root" {
   route_key          = "$default"
   target             = "integrations/${aws_apigatewayv2_integration.public_api.id}"
   authorization_type = "JWT"
-  authorizer_id      = aws_apigatewayv2_authorizer.cognito-jwt.id
+  authorizer_id      = aws_apigatewayv2_authorizer.okta-jwt.id
 }
 
 # Need to leave the /OPTIONS requests as unauthenticated for CORS

@@ -2,11 +2,9 @@ locals {
   frontend_path = "${path.module}/frontend"
 
   react_config = <<-EOT
-  REACT_APP_LOGOUT_URL=${var.logout-url}
-
   REACT_APP_API_HOST=${var.api-root-url}
-  REACT_APP_COGNITO_HOST=https://${var.cognito-domain}.auth.${var.region-primary}.amazoncognito.com
-  REACT_APP_COGNITO_CLIENT_ID=${var.cognito-client-id}
+  REACT_APP_JWT_ISSUER=${var.jwt-issuer}
+  REACT_APP_JWT_CLIENT_ID=${var.jwt-client-id}
   EOT
 }
 
