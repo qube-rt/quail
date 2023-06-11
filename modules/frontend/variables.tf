@@ -25,17 +25,12 @@ variable "api-root-url" {
   description = "Root URL of the application API."
 }
 
-variable "cognito-domain" {
+variable "jwt-issuer" {
   type        = string
-  description = "Domain of the Cognito user pool."
+  description = "URL of the Auth Server issuing minting JWTs."
 }
 
-variable "cognito-client-id" {
+variable "jwt-client-id" {
   type        = string
-  description = "ID of the Cognito client used for authentication."
-}
-
-variable "logout-url" {
-  type        = string
-  description = "The user will be redirected there when logging out from the application."
+  description = "ID of the OAuth client App."
 }

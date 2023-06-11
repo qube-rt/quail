@@ -35,16 +35,6 @@ variable "external-sns-failure-topic-arn" {
   description = "If set, this topic will be notified of provisioning failures or lambda execution failures. If unset, a new topic will be created"
 }
 
-variable "sso-apps-metadata" {
-  type        = map(any)
-  description = "Map of user-group name to metadata url of the associated SSO SAML app, required for the Cognito SAML identity providers."
-}
-
-variable "logout-url" {
-  type        = string
-  description = "User will be redirected to this url upon logout"
-}
-
 variable "support-localhost-urls" {
   type        = bool
   default     = false
@@ -124,4 +114,14 @@ variable "permission-data" {
   }))
   default     = {}
   description = "Allowed permission values for user groups."
+}
+
+variable "jwt-issuer" {
+  type        = string
+  description = "URL of the Auth Server issuing minting JWTs."
+}
+
+variable "jwt-audience" {
+  type        = list(string)
+  description = "Audiences to check the issued JWTs for."
 }

@@ -26,11 +26,11 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import { useSnackbar } from 'notistack';
+import { enqueueSnackbar } from 'notistack';
 
 import DebouncedButton from './DebouncedButton';
 import SelectField from './SelectField';
-import { getLabel, formatDate, getUsernameFromJWT } from '../utils';
+import { getLabel, formatDate, getUserData } from '../utils';
 import labels from '../labels';
 
 const useStyles = makeStyles((theme) => ({
@@ -61,7 +61,7 @@ export default function InstancesTable(props) {
     is_superuser, instances, instanceTypes, onDeleteClick,
     onExtendClick, onStartClick, onStopClick, onInstanceUpdateClick,
   } = props;
-  const { enqueueSnackbar } = useSnackbar();
+  const { username } = getUserData();
 
   // Calculated values
   const isLoading = instances === undefined;
@@ -71,7 +71,7 @@ export default function InstancesTable(props) {
     const fileBody = [
       'auto connect:i:1\n',
       `full address:s:${instance_address}\n`,
-      `username:s:${getUsernameFromJWT()}\n`,
+      `username:s:${username}\n`,
     ];
     const element = document.createElement('a');
     const file = new Blob(fileBody,
@@ -83,7 +83,6 @@ export default function InstancesTable(props) {
   };
 
   function copySSHCommandToClipboard(ipAddress) {
-    const username = getUsernameFromJWT().split('@')[0];
     navigator.clipboard.writeText(`ssh ${username}@${ipAddress}`);
     enqueueSnackbar('Connection command copied to clipboard.', { variant: 'success' });
   }

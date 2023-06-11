@@ -47,7 +47,7 @@ def post_provision():
         "os": payload["operating_system"],
         "expiry": datetime.fromisoformat(payload["expiry"]),
         "email": payload["email"],
-        "user_group": payload["group"],
+        "groups": payload["groups"],
         "instance_name": payload["instance_name"],
         "user_claims": payload["user"],
         "username": payload["username"],
@@ -67,7 +67,7 @@ def post_provision():
     # Get the remaining params from permissions
     os_config = get_os_config(
         table_name=permissions_table,
-        group_name=params["user_group"],
+        groups=params["groups"],
         os_name=params["os"],
     )
 
@@ -248,6 +248,7 @@ def post_notify_success():
     # Get config from dynamodb
     dynamodb_client = boto3.client("dynamodb")
     state_data = dynamodb_client.get_item(TableName=state_table, Key={"stacksetID": {"S": stackset_id}})["Item"]
+    current_app.logger.info("state data: %s", state_data)
 
     for instance_data in fetch_stackset_instances(stackset_id=stackset_id):
         template_data = {
@@ -258,14 +259,16 @@ def post_notify_success():
             "ip": instance_data["private_ip"],
             "expiry": datetime.fromisoformat(state_data["expiry"]["S"]).strftime("%-I %p %d %B"),
         }
+        current_app.logger.info("template data: %s", template_data)
 
-        send_email(
+        response = send_email(
             subject="Compute instance provisioned successfully",
             template_name="provision_success",
             template_data=template_data,
             source_email=f"Instance Provisioning ({project_name}) <{notification_email}>",
             to_email=stackset_email,
         )
+        current_app.logger.info("send mail response : %s", response)
 
     return {}, 204
 
@@ -328,7 +331,9 @@ def post_cleanup_start():
     # Make provisions for paging of the results
     cfn_client = boto3.client("cloudformation")
 
-    for instance_data in fetch_stackset_instances(stackset_id=stackset_id):
+    instances = fetch_stackset_instances(stackset_id=stackset_id)
+    current_app.logger.info("instances: %s", instances)
+    for instance_data in instances:
         response = cfn_client.delete_stack_instances(
             StackSetName=stackset_id,
             Accounts=[instance_data["account_id"]],
@@ -336,7 +341,7 @@ def post_cleanup_start():
             RetainStacks=False,
         )
 
-        current_app.logger.info(response)
+        current_app.logger.info("delete stack instance response: %s", response)
 
         template_data = {
             "region": instance_data["region"],
@@ -352,7 +357,7 @@ def post_cleanup_start():
             to_email=owner_email,
         )
 
-        current_app.logger.info(response)
+        current_app.logger.info("send mail response: %s", response)
 
     return {
         "stackset_id": stackset_id,

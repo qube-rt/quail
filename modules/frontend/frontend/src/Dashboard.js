@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 import pick from 'lodash/pick';
 import { Container, Box } from '@mui/material';
 import moment from 'moment';
-import { withSnackbar } from 'notistack';
+import { enqueueSnackbar } from 'notistack';
 
 import appApi from './api';
 import TopAppBar from './components/TopAppBar';
@@ -13,78 +13,83 @@ import ConfigsTable from './components/ConfigsTable';
 import {
   saveConfigurations,
   getConfigurations,
-  handleLogout,
-  getSuperuserFlagFromJWT,
-  getEmailFromJWT,
-  getUsernameFromJWT,
+  getUserData,
 } from './utils';
 
-class Dashboard extends React.Component {
-  constructor(props) {
-    super(props);
+const Dashboard = () => {
+  const { username: initialUsername, email: initialEmail, is_superuser } = getUserData();
 
-    this.state = {
-      regionToOS: undefined,
+  const [state, setState] = useState({
+    regionToOS: undefined,
 
-      regions: undefined,
-      instanceTypes: undefined,
-      operatingSystems: undefined,
-      expiry: undefined,
-      region: undefined,
-      operatingSystem: undefined,
-      instanceType: undefined,
-      maxExpiry: undefined,
+    regions: [],
+    instanceTypes: [],
+    operatingSystems: [],
+    expiry: undefined,
+    region: undefined,
+    operatingSystem: undefined,
+    instanceType: undefined,
+    maxExpiry: undefined,
+    instanceName: '',
+    username: '',
+    email: '',
+
+    currentInstances: undefined,
+
+    formErrors: {},
+    nonFormError: '',
+    formLoading: true,
+    provisionLoading: false,
+    pollInterval: undefined,
+
+    previousConfigs: getConfigurations(),
+  });
+  const updateState = (delta) => setState((oldState) => ({ ...oldState, ...delta }));
+
+  const resetForm = () => {
+    updateState({
       instanceName: '',
-      username: '',
-      email: '',
+      email: initialEmail,
+      username: initialUsername,
+    });
+  };
 
-      currentInstances: undefined,
-
-      formErrors: {},
-      nonFormError: '',
-      formLoading: true,
-      provisionLoading: false,
-      pollInterval: undefined,
-
-      is_superuser: getSuperuserFlagFromJWT(),
-
-      previousConfigs: getConfigurations(),
-    };
-
-    this.handleDateChange = this.handleDateChange.bind(this);
-    this.handleFieldChange = this.handleFieldChange.bind(this);
-    this.handleProvisionClick = this.handleProvisionClick.bind(this);
-    this.handleReload = this.handleReload.bind(this);
-
-    this.handleExtendClick = this.handleExtendClick.bind(this);
-    this.handleStopClick = this.handleStopClick.bind(this);
-    this.handleStartClick = this.handleStartClick.bind(this);
-    this.handleRestoreClick = this.handleRestoreClick.bind(this);
-    this.handleDeleteClick = this.handleDeleteClick.bind(this);
-    this.handleInstanceUpdateClick = this.handleInstanceUpdateClick.bind(this);
-  }
-
-  componentDidMount() {
-    this.handleReload();
-  }
-
-  componentWillUnmount() {
-    this.handleUnmount();
-  }
-
-  handleUnmount() {
-    const { pollInterval } = this.state;
+  const handleUnmount = () => {
+    const { pollInterval } = state;
     clearInterval(pollInterval);
-  }
+  };
 
-  handleReload() {
-    this.handleUnmount();
-    const { enqueueSnackbar } = this.props;
+  const checkForInstanceUpdates = () => {
+    const { pollInterval } = state;
 
-    this.setState({
-      regions: undefined,
-      instanceTypes: undefined,
-      operatingSystems: undefined,
+    // Don't do anything if the timer is already running
+    if (pollInterval !== undefined) {
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      const { data: { instances } } = await appApi.getInstances();
+      const currentInstances = instances.sort(
+        (a, b) => new Date(a.expiry) - new Date(b.expiry),
+      );
+      updateState({ currentInstances });
+
+      if (currentInstances.filter((instance) => instance.state !== 'running').length === 0) {
+        clearInterval(pollInterval);
+        updateState({ pollInterval: undefined });
+      }
+    }, 30000);
+
+    updateState({ pollInterval: interval });
+  };
+
+  const handleReload = () => {
+    handleUnmount();
+
+    updateState({
+      regions: [],
+      instanceTypes: [],
+      operatingSystems: [],
       expiry: undefined,
       region: undefined,
       operatingSystem: undefined,
@@ -101,7 +106,7 @@ class Dashboard extends React.Component {
       formLoading: true,
       provisionLoading: false,
     });
-    this.resetForm();
+    resetForm();
 
     // Fetch the params the user has permissions for
     appApi.getParams()
@@ -114,7 +119,7 @@ class Dashboard extends React.Component {
         const maxExpiry = moment(startTime).add(parseInt(max_days_to_expiry, 10), 'days');
 
         const selectedRegion = Object.keys(region_map)[0];
-        this.setState({
+        updateState({
           regionToOS: region_map,
           regions: Object.keys(region_map),
           region: selectedRegion,
@@ -128,10 +133,10 @@ class Dashboard extends React.Component {
 
         // If any instances are in the process of being provisioned,
         // check for updates regularly
-        this.checkForInstanceUpdates();
+        checkForInstanceUpdates();
       })
       .catch((response) => {
-        this.setState({
+        updateState({
           regions: [],
           instanceTypes: [],
           operatingSystems: [],
@@ -141,217 +146,41 @@ class Dashboard extends React.Component {
         enqueueSnackbar(`Error fetching permissions: ${response.data.message}`, { variant: 'error' });
       })
       .then(() => {
-        this.setState({ formLoading: false });
+        updateState({ formLoading: false });
       });
 
     appApi.getInstances()
       .then(({ data: { instances } }) => {
-        this.setState({
+        updateState({
           currentInstances: instances.sort((a, b) => new Date(a.expiry) - new Date(b.expiry)),
         });
       });
-  }
+  };
 
-  handleDeleteClick(event, instance) {
-    const { enqueueSnackbar } = this.props;
-    this.setState((state) => ({
-      currentInstances: state.currentInstances.map(
-        (item) => (item.stackset_id === instance.stackset_id
-          ? { handlingDelete: true, ...item } : item),
-      ),
-    }));
-
-    appApi.deleteInstance({ instanceId: instance.stackset_id })
-      .then(() => {
-        enqueueSnackbar('Instance submitted for deprovisioning.', { variant: 'success' });
-        this.setState((state) => ({
-          currentInstances: state.currentInstances.filter(
-            (item) => item.stackset_id !== instance.stackset_id,
-          ),
-        }));
-      });
-  }
-
-  handleExtendClick(event, instance) {
-    const { enqueueSnackbar } = this.props;
-    this.setState((state) => ({
-      currentInstances: state.currentInstances.map(
-        (item) => (item.stackset_id === instance.stackset_id
-          ? { ...item, handlingExtend: true } : item),
-      ),
-    }));
-
-    appApi.extendInstance({ instanceId: instance.stackset_id })
-      .then((response) => {
-        enqueueSnackbar('Instance extended.', { variant: 'success' });
-        this.setState((state) => ({
-          currentInstances: state.currentInstances.map(
-            (item) => (item.stackset_id === instance.stackset_id
-              ? { ...item, expiry: response.data.expiry, can_extend: response.data.can_extend }
-              : item
-            ),
-          ),
-        }));
-      })
-      .catch((response) => {
-        enqueueSnackbar(`Could not extend: ${response.data.message}`, { variant: 'error' });
-      })
-      .then(() => this.setState((state) => ({
-        currentInstances: state.currentInstances.map(
-          (item) => (item.stackset_id === instance.stackset_id
-            ? { ...item, handlingExtend: false } : item),
-        ),
-      })));
-  }
-
-  handleStartClick(event, instance) {
-    const { enqueueSnackbar } = this.props;
-    this.setState((state) => ({
-      currentInstances: state.currentInstances.map(
-        (item) => (item.stackset_id === instance.stackset_id
-          ? { ...item, handlingStart: true } : item),
-      ),
-    }));
-
-    appApi.startInstance({ instanceId: instance.stackset_id })
-      .then(() => {
-        enqueueSnackbar('Instance started.', { variant: 'success' });
-        this.setState((state) => ({
-          currentInstances: state.currentInstances.map(
-            (item) => (item.stackset_id === instance.stackset_id
-              ? { ...item, state: 'pending' } : item),
-          ),
-        }));
-        this.checkForInstanceUpdates();
-      })
-      .catch((response) => {
-        enqueueSnackbar(`Could not start instance: ${response.data.message}`, { variant: 'error' });
-      })
-      .then(() => this.setState((state) => ({
-        currentInstances: state.currentInstances.map(
-          (item) => (item.stackset_id === instance.stackset_id
-            ? { ...item, handlingStart: false } : item),
-        ),
-      })));
-  }
-
-  handleStopClick(event, instance) {
-    const { enqueueSnackbar } = this.props;
-    this.setState((state) => ({
-      currentInstances: state.currentInstances.map(
-        (item) => (item.stackset_id === instance.stackset_id
-          ? { ...item, handlingStop: true } : item),
-      ),
-    }));
-
-    appApi.stopInstance({ instanceId: instance.stackset_id })
-      .then(() => {
-        enqueueSnackbar('Instance stopped.', { variant: 'success' });
-        this.setState((state) => ({
-          currentInstances: state.currentInstances.map(
-            (item) => (item.stackset_id === instance.stackset_id
-              ? { ...item, state: 'stopping' } : item),
-          ),
-        }));
-        this.checkForInstanceUpdates();
-      })
-      .catch((response) => {
-        enqueueSnackbar(`Could not start instance: ${response.data.message}`, { variant: 'error' });
-      })
-      .then(() => this.setState((state) => ({
-        currentInstances: state.currentInstances.map(
-          (item) => (item.stackset_id === instance.stackset_id
-            ? { ...item, handlingStop: false } : item),
-        ),
-      })));
-  }
-
-  handleFieldChange(event, fieldName) {
-    if (fieldName === 'region') {
-      this.setState((state) => ({ operatingSystems: state.regionToOS[event.target.value] }));
-    }
-
-    this.setState(
-      { [fieldName]: event.target.value },
-      () => (fieldName === 'instanceName' ? this.validateInstanceName() : undefined),
-    );
-  }
-
-  handleDateChange(value, fieldName) {
-    this.setState(
-      { [fieldName]: value },
-      this.validateExpiry,
-    );
-  }
-
-  handleRestoreClick(event, request) {
-    this.setState({
-      ...pick(request, ['region', 'operatingSystem', 'instanceType', 'daysToExpiry']),
+  const addPendingInstance = (params) => {
+    updateState({
+      currentInstances: [
+        {
+          ...pick(params, ['region', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
+          operatingSystemName: params.operatingSystem,
+        },
+        ...state.currentInstances,
+      ].sort((a, b) => new Date(a.expiry) - new Date(b.expiry)),
     });
-  }
+  };
 
-  handleInstanceUpdateClick(instance, instanceType) {
-    const { enqueueSnackbar } = this.props;
+  const saveConfiguration = (params) => {
+    const lastConfigs = [
+      { ...params, timestamp: new Date() },
+      ...state.previousConfigs,
+    ].slice(0, 10);
+    updateState({ previousConfigs: lastConfigs });
 
-    this.setState((state) => ({
-      currentInstances: state.currentInstances.map(
-        (item) => (item.stackset_id === instance.stackset_id
-          ? { ...item, state: 'updating' } : item),
-      ),
-    }));
-    appApi.updateInstance({ instanceId: instance.stackset_id, instanceType })
-      .then(() => {
-        enqueueSnackbar('Instance submitted for update.', { variant: 'success' });
-        this.setState((state) => ({
-          currentInstances: state.currentInstances.map(
-            (item) => (item.stackset_id === instance.stackset_id
-              ? { ...item, instanceType } : item),
-          ),
-        }));
-        this.checkForInstanceUpdates();
-      })
-      .catch((response) => {
-        enqueueSnackbar(`Could not update instance: ${response.data.message}`, { variant: 'error' });
-      });
-  }
+    saveConfigurations(lastConfigs);
+  };
 
-  handleProvisionClick(event) {
-    event.preventDefault();
-    const { enqueueSnackbar } = this.props;
-
-    const formErrors = this.validatedAll();
-    if (formErrors.filter((error) => !!error).length !== 0) {
-      enqueueSnackbar('Please fix form errors before submitting.', { variant: 'error' });
-      return;
-    }
-
-    this.setState({ provisionLoading: true });
-
-    const params = {
-      ...pick(this.state, ['region', 'operatingSystem', 'instanceType', 'daysToExpiry', 'expiry', 'instanceName', 'email', 'username']),
-    };
-    params.expiry = params.expiry.toISOString();
-    this.saveConfiguration(params);
-
-    appApi.createInstance(params)
-      .then((response) => {
-        this.addPendingInstance(
-          { email: response.data.email, username: response.data.username, ...params },
-        );
-        this.resetForm();
-        enqueueSnackbar('Instance provisioning started.', { variant: 'success' });
-        this.checkForInstanceUpdates();
-      })
-      .catch((response) => {
-        this.setState((state) => (
-          { formErrors: { ...state.formErrors, ...response.data.message } }));
-        enqueueSnackbar('Could not provision the instance requested.', { variant: 'error' });
-      })
-      .then(() => this.setState({ provisionLoading: false }));
-  }
-
-  validateInstanceName() {
-    const { instanceName } = this.state;
+  const validateInstanceName = () => {
+    const { instanceName } = state;
 
     let errorMsg = null;
     if (!instanceName) {
@@ -360,14 +189,14 @@ class Dashboard extends React.Component {
       errorMsg = 'Name must not be longer than 255 characters.';
     }
 
-    this.setState((state) => (
-      { formErrors: { ...state.formErrors, instanceName: errorMsg } }));
+    updateState(
+      { formErrors: { ...state.formErrors, instanceName: errorMsg } },
+    );
     return errorMsg;
-  }
+  };
 
-  validateExpiry() {
-    const { expiry } = this.state;
-    const { enqueueSnackbar } = this.props;
+  const validateExpiry = () => {
+    const { expiry } = state;
 
     let errorMsg = null;
     if (expiry < new Date()) {
@@ -376,134 +205,280 @@ class Dashboard extends React.Component {
       enqueueSnackbar('The expiry time is less than 24 hours ahead.', { variant: 'warning' });
     }
 
-    this.setState((state) => (
-      { formErrors: { ...state.formErrors, expiry: errorMsg } }));
+    updateState(
+      { ...state, formErrors: { ...state.formErrors, expiry: errorMsg } },
+    );
     return errorMsg;
-  }
+  };
 
-  validatedAll() {
-    return [
-      this.validateExpiry(),
-      this.validateInstanceName(),
-    ];
-  }
+  const validatedAll = () => [
+    validateExpiry(),
+    validateInstanceName(),
+  ];
 
-  checkForInstanceUpdates() {
-    const { pollInterval } = this.state;
+  const handleDeleteClick = async (event, instance) => {
+    updateState({
+      currentInstances: state.currentInstances.map(
+        (item) => (item.stackset_id === instance.stackset_id
+          ? { handlingDelete: true, ...item } : item),
+      ),
+    });
 
-    // Don't do anything if the timer is already running
-    if (pollInterval !== undefined) {
+    await appApi.deleteInstance({ instanceId: instance.stackset_id });
+
+    enqueueSnackbar('Instance submitted for deprovisioning.', { variant: 'success' });
+    updateState({
+      currentInstances: state.currentInstances.filter(
+        (item) => item.stackset_id !== instance.stackset_id,
+      ),
+    });
+  };
+
+  const handleExtendClick = async (event, instance) => {
+    updateState({
+      currentInstances: state.currentInstances.map(
+        (item) => (item.stackset_id === instance.stackset_id
+          ? { ...item, handlingExtend: true } : item),
+      ),
+    });
+
+    try {
+      const response = await appApi.extendInstance({ instanceId: instance.stackset_id });
+
+      enqueueSnackbar('Instance extended.', { variant: 'success' });
+      updateState({
+        currentInstances: state.currentInstances.map(
+          (item) => (item.stackset_id === instance.stackset_id
+            ? { ...item, expiry: response.data.expiry, can_extend: response.data.can_extend }
+            : item
+          ),
+        ),
+      });
+    } catch (response) {
+      enqueueSnackbar(`Could not extend: ${response.data.message}`, { variant: 'error' });
+      updateState({
+        currentInstances: state.currentInstances.map(
+          (item) => (item.stackset_id === instance.stackset_id
+            ? { ...item, handlingExtend: false } : item),
+        ),
+      });
+    }
+  };
+
+  const handleStartClick = async (event, instance) => {
+    updateState({
+      currentInstances: state.currentInstances.map(
+        (item) => (item.stackset_id === instance.stackset_id
+          ? { ...item, handlingStart: true } : item),
+      ),
+    });
+
+    try {
+      await appApi.startInstance({ instanceId: instance.stackset_id });
+
+      enqueueSnackbar('Instance started.', { variant: 'success' });
+      updateState({
+        currentInstances: state.currentInstances.map(
+          (item) => (item.stackset_id === instance.stackset_id
+            ? { ...item, state: 'pending' } : item),
+        ),
+      });
+      checkForInstanceUpdates();
+    } catch (response) {
+      enqueueSnackbar(`Could not start instance: ${response.data.message}`, { variant: 'error' });
+      updateState({
+        currentInstances: state.currentInstances.map(
+          (item) => (item.stackset_id === instance.stackset_id
+            ? { ...item, handlingStart: false } : item),
+        ),
+      });
+    }
+  };
+
+  const handleStopClick = async (event, instance) => {
+    updateState({
+      currentInstances: state.currentInstances.map(
+        (item) => (item.stackset_id === instance.stackset_id
+          ? { ...item, handlingStop: true } : item),
+      ),
+    });
+
+    try {
+      await appApi.stopInstance({ instanceId: instance.stackset_id });
+
+      enqueueSnackbar('Instance stopped.', { variant: 'success' });
+      updateState({
+        currentInstances: state.currentInstances.map(
+          (item) => (item.stackset_id === instance.stackset_id
+            ? { ...item, state: 'stopping' } : item),
+        ),
+      });
+      checkForInstanceUpdates();
+    } catch (response) {
+      enqueueSnackbar(`Could not start instance: ${response.data.message}`, { variant: 'error' });
+      updateState({
+        currentInstances: state.currentInstances.map(
+          (item) => (item.stackset_id === instance.stackset_id
+            ? { ...item, handlingStop: false } : item),
+        ),
+      });
+    }
+  };
+
+  const handleFieldChange = (event, fieldName) => {
+    const changes = {};
+    if (fieldName === 'region') {
+      changes.operatingSystems = state.regionToOS[event.target.value];
+    }
+
+    updateState({
+      ...changes,
+      [fieldName]: event.target.value,
+    });
+    // TODO: check it works
+    validateInstanceName();
+  };
+
+  const handleDateChange = (value, fieldName) => {
+  // TODO check it works
+    updateState(
+      { [fieldName]: value },
+    );
+    validateExpiry();
+  };
+
+  const handleRestoreClick = (event, request) => {
+    updateState({
+      ...pick(request, ['region', 'operatingSystem', 'instanceType', 'daysToExpiry']),
+    });
+  };
+
+  const handleInstanceUpdateClick = async (instance, instanceType) => {
+    updateState({
+      currentInstances: state.currentInstances.map(
+        (item) => (item.stackset_id === instance.stackset_id
+          ? { ...item, state: 'updating' } : item),
+      ),
+    });
+
+    try {
+      await appApi.updateInstance({ instanceId: instance.stackset_id, instanceType });
+
+      enqueueSnackbar('Instance submitted for update.', { variant: 'success' });
+      updateState({
+        currentInstances: state.currentInstances.map(
+          (item) => (item.stackset_id === instance.stackset_id
+            ? { ...item, instanceType } : item),
+        ),
+      });
+      checkForInstanceUpdates();
+    } catch (response) {
+      enqueueSnackbar(`Could not update instance: ${response.data.message}`, { variant: 'error' });
+    }
+  };
+
+  const handleProvisionClick = async (event) => {
+    event.preventDefault();
+
+    const formErrors = validatedAll();
+    if (formErrors.filter((error) => !!error).length !== 0) {
+      enqueueSnackbar('Please fix form errors before submitting.', { variant: 'error' });
       return;
     }
 
-    const interval = setInterval(() => {
-      appApi.getInstances()
-        .then(({ data: { instances } }) => {
-          const currentInstances = instances.sort(
-            (a, b) => new Date(a.expiry) - new Date(b.expiry),
-          );
-          this.setState({ currentInstances });
-          // If all instannces are ready, stop checking for updates
-          if (currentInstances.filter((instance) => instance.state !== 'running').length === 0) {
-            // eslint-disable-next-line no-shadow
-            const { pollInterval } = this.state;
-            clearInterval(pollInterval);
-            this.setState({ pollInterval: undefined });
-          }
-        });
-    }, 30000);
-    this.setState({ pollInterval: interval });
-  }
+    updateState({ provisionLoading: true });
 
-  resetForm() {
-    this.setState({ instanceName: '', email: getEmailFromJWT(), username: getUsernameFromJWT() });
-  }
+    const params = {
+      ...pick(state, ['region', 'operatingSystem', 'instanceType', 'daysToExpiry', 'expiry', 'instanceName', 'email', 'username']),
+    };
+    params.expiry = params.expiry.toISOString();
+    saveConfiguration(params);
 
-  addPendingInstance(params) {
-    this.setState((state) => ({
-      currentInstances: [
-        {
-          ...pick(params, ['region', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
-          operatingSystemName: params.operatingSystem,
-        },
-        ...state.currentInstances,
-      ].sort((a, b) => new Date(a.expiry) - new Date(b.expiry)),
-    }));
-  }
+    try {
+      const response = await appApi.createInstance(params);
 
-  saveConfiguration(params) {
-    this.setState((state) => ({
-      previousConfigs: [
-        { ...params, timestamp: new Date() },
-        ...state.previousConfigs,
-      ].slice(0, 10),
-    // eslint-disable-next-line react/destructuring-assignment
-    }), () => saveConfigurations(this.state.previousConfigs));
-  }
+      addPendingInstance(
+        { email: response.data.email, username: response.data.username, ...params },
+      );
+      resetForm();
+      enqueueSnackbar('Instance provisioning started.', { variant: 'success' });
+      checkForInstanceUpdates();
+    } catch (error) {
+      updateState(
+        { formErrors: { ...state.formErrors, ...error.data.message } },
+      );
+      enqueueSnackbar('Could not provision the instance requested.', { variant: 'error' });
+    } finally {
+      updateState({ provisionLoading: false });
+    }
+  };
 
-  render() {
-    const {
-      regions, instanceTypes, operatingSystems, expiry,
-      region, instanceType, operatingSystem, maxExpiry,
-      currentInstances, previousConfigs, provisionLoading,
-      instanceName, formErrors, is_superuser, username,
-      email, nonFormError, formLoading,
-    } = this.state;
+  useEffect(() => {
+    handleReload();
 
-    return (
-      <Container>
-        <TopAppBar
-          onLogout={handleLogout}
-          onReload={this.handleReload}
+    return () => handleUnmount();
+  }, []);
+
+  const {
+    regions, instanceTypes, operatingSystems, expiry,
+    region, instanceType, operatingSystem, maxExpiry,
+    currentInstances, previousConfigs, provisionLoading,
+    instanceName, formErrors, username,
+    email, nonFormError, formLoading,
+  } = state;
+
+  return (
+    <Container>
+      <TopAppBar
+        onReload={handleReload}
+      />
+
+      <Box my={6}>
+        <h2>Currently running instances</h2>
+        <InstancesTable
+          is_superuser={is_superuser}
+          instances={currentInstances}
+          instanceTypes={instanceTypes}
+          onDeleteClick={handleDeleteClick}
+          onExtendClick={handleExtendClick}
+          onStartClick={handleStartClick}
+          onStopClick={handleStopClick}
+          onInstanceUpdateClick={handleInstanceUpdateClick}
         />
+      </Box>
 
-        <Box my={6}>
-          <h2>Currently running instances</h2>
-          <InstancesTable
-            is_superuser={is_superuser}
-            instances={currentInstances}
-            instanceTypes={instanceTypes}
-            onDeleteClick={this.handleDeleteClick}
-            onExtendClick={this.handleExtendClick}
-            onStartClick={this.handleStartClick}
-            onStopClick={this.handleStopClick}
-            onInstanceUpdateClick={this.handleInstanceUpdateClick}
-          />
-        </Box>
+      <Box my={6}>
+        <h2>Provision a new instance</h2>
+        <InstanceForm
+          is_superuser={is_superuser}
+          regions={regions}
+          selectedRegion={region}
+          instanceTypes={instanceTypes}
+          selectedInstanceType={instanceType}
+          operatingSystems={operatingSystems}
+          selectedOperatingSystem={operatingSystem}
+          expiry={expiry}
+          maxExpiry={maxExpiry}
+          instanceName={instanceName}
+          username={username}
+          email={email}
+          onFieldChange={handleFieldChange}
+          onDateChange={handleDateChange}
+          onSubmit={handleProvisionClick}
+          formLoading={formLoading}
+          formErrors={formErrors}
+          nonFormError={nonFormError}
+          provisionLoading={provisionLoading}
+        />
+      </Box>
 
-        <Box my={6}>
-          <h2>Provision a new instance</h2>
-          <InstanceForm
-            is_superuser={is_superuser}
-            regions={regions}
-            selectedRegion={region}
-            instanceTypes={instanceTypes}
-            selectedInstanceType={instanceType}
-            operatingSystems={operatingSystems}
-            selectedOperatingSystem={operatingSystem}
-            expiry={expiry}
-            maxExpiry={maxExpiry}
-            instanceName={instanceName}
-            username={username}
-            email={email}
-            onFieldChange={this.handleFieldChange}
-            onDateChange={this.handleDateChange}
-            onSubmit={this.handleProvisionClick}
-            formLoading={formLoading}
-            formErrors={formErrors}
-            nonFormError={nonFormError}
-            provisionLoading={provisionLoading}
-          />
-        </Box>
+      <Box my={6}>
+        <h2>Most recently used 10 configurations</h2>
+        <ConfigsTable configs={previousConfigs} onRestoreClick={handleRestoreClick} />
+      </Box>
 
-        <Box my={6}>
-          <h2>Most recently used 10 configurations</h2>
-          <ConfigsTable configs={previousConfigs} onRestoreClick={this.handleRestoreClick} />
-        </Box>
+    </Container>
+  );
+};
 
-      </Container>
-    );
-  }
-}
-
-export default withSnackbar(Dashboard);
+export default Dashboard;
