@@ -179,9 +179,7 @@ const Dashboard = () => {
     saveConfigurations(lastConfigs);
   };
 
-  const validateInstanceName = () => {
-    const { instanceName } = state;
-
+  const validateInstanceName = (instanceName) => {
     let errorMsg = null;
     if (!instanceName) {
       errorMsg = 'Name must not be empty.';
@@ -195,9 +193,7 @@ const Dashboard = () => {
     return errorMsg;
   };
 
-  const validateExpiry = () => {
-    const { expiry } = state;
-
+  const validateExpiry = (expiry) => {
     let errorMsg = null;
     if (expiry < new Date()) {
       errorMsg = 'Expiry date cannot be in the past.';
@@ -206,14 +202,14 @@ const Dashboard = () => {
     }
 
     updateState(
-      { ...state, formErrors: { ...state.formErrors, expiry: errorMsg } },
+      { formErrors: { ...state.formErrors, expiry: errorMsg } },
     );
     return errorMsg;
   };
 
   const validatedAll = () => [
-    validateExpiry(),
-    validateInstanceName(),
+    validateExpiry(state.expiry),
+    validateInstanceName(state.instanceName),
   ];
 
   const handleDeleteClick = async (event, instance) => {
@@ -335,21 +331,19 @@ const Dashboard = () => {
       ...changes,
       [fieldName]: event.target.value,
     });
-    // TODO: check it works
-    validateInstanceName();
+    validateInstanceName(fieldName === 'instanceName' ? event.target.value : state.instanceName);
   };
 
   const handleDateChange = (value, fieldName) => {
-  // TODO check it works
     updateState(
       { [fieldName]: value },
     );
-    validateExpiry();
+    validateExpiry(value);
   };
 
   const handleRestoreClick = (event, request) => {
     updateState({
-      ...pick(request, ['region', 'operatingSystem', 'instanceType', 'daysToExpiry']),
+      ...pick(request, ['region', 'operatingSystem', 'instanceType']),
     });
   };
 

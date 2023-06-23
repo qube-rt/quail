@@ -153,12 +153,18 @@ const InstanceForm = (props) => {
                 views={['day', 'hours']}
                 maxDate={maxExpiry}
                 value={expiry}
-                error={!!formErrors.expiry}
-                helperText={formErrors.expiry}
-                onChange={(e) => onDateChange(e, 'expiry')}
+                onChange={(e) => onDateChange(e.toDate(), 'expiry')}
                 disabled={formDisabled}
-                // eslint-disable-next-line react/jsx-props-no-spreading
-                renderInput={(params) => <TextField {...params} onClick={() => setOpen(true)} variant="standard" />}
+                renderInput={(params) => (
+                  <TextField
+                    // eslint-disable-next-line react/jsx-props-no-spreading
+                    {...params}
+                    onClick={() => setOpen(true)}
+                    variant="standard"
+                    error={!!formErrors.expiry}
+                    helperText={formErrors.expiry}
+                  />
+                )}
               />
             </LocalizationProvider>
           </Grid>
