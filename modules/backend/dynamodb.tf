@@ -2,8 +2,14 @@
 resource "aws_dynamodb_table" "dynamodb-regional-metadata-table" {
   name         = "${var.project-name}-regional-data"
   billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "region"
+  hash_key     = "accountId"
+  range_key    = "region"
   tags         = local.resource_tags
+
+  attribute {
+    name = "accountId"
+    type = "S"
+  }
 
   attribute {
     name = "region"
@@ -14,11 +20,13 @@ resource "aws_dynamodb_table" "dynamodb-regional-metadata-table" {
 resource "aws_dynamodb_table_item" "dynamodb-regional-metadata-items" {
   table_name = aws_dynamodb_table.dynamodb-regional-metadata-table.name
   hash_key   = aws_dynamodb_table.dynamodb-regional-metadata-table.hash_key
+  range_key  = aws_dynamodb_table.dynamodb-regional-metadata-table.range_key
 
-  for_each = var.regional-data
+  for_each = { for record in var.regional-data : "${record.account-id}_${record.region}" => record }
 
   item = jsonencode({
-    region     = { "S" = each.key },
+    accountId  = { "S" = each.value.account-id },
+    region     = { "S" = each.value.region },
     sshKeyName = { "S" = each.value.ssh-key-name },
     vpcId      = { "S" = each.value.vpc-id },
     subnetId   = { "SS" = sort(each.value.subnet-id) },

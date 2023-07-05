@@ -19,6 +19,7 @@ resource "aws_iam_role" "private_api" {
 
 # permissions for the Lambda role
 data "aws_iam_policy_document" "private_api" {
+  # Base lambda permissions
   statement {
     effect = "Allow"
     actions = [
@@ -27,6 +28,17 @@ data "aws_iam_policy_document" "private_api" {
       "logs:PutLogEvents"
     ]
     resources = ["${aws_cloudwatch_log_group.private_api.arn}:*"]
+  }
+
+  # Permissions to assume roles in remote accounts
+  statement {
+    effect = "Allow"
+    actions = [
+      "sts:AssumeRole",
+    ]
+    resources = [
+      for account_id in var.remote-accounts : "arn:aws:iam::${account_id}:role/${var.cross-account-role-name}"
+    ]
   }
 
   # S3 permissions
@@ -200,6 +212,7 @@ resource "aws_lambda_function" "private_api" {
       "SNS_ERROR_TOPIC_ARN"               = local.sns_error_topic_arn
       "CLEANUP_SFN_ARN"                   = data.aws_sfn_state_machine.cleanup_state_machine.arn
       "CLEANUP_NOTICE_NOTIFICATION_HOURS" = jsonencode(var.cleanup-notice-notification-hours)
+      "CROSS_ACCOUNT_ROLE_NAME"           = var.cross-account-role-name
 
       "FLASK_DEBUG"                  = 1
       "FLASK_ENV"                    = "development"

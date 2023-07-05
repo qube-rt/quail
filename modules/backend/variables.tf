@@ -5,7 +5,7 @@ variable "region-primary" {
 
 variable "account-primary" {
   type        = string
-  description = "AWS account where resources will be deployed"
+  description = "AWS account hosting the infrastructure and the stacksets"
 }
 
 variable "project-name" {
@@ -56,6 +56,16 @@ variable "cfn_data_bucket" {
   description = "The name of the bucket containing cfn templates and user data scripts."
 }
 
+variable "cross-account-role-name" {
+  type        = string
+  description = "The name of the role assumed by the APIs to carry out cross-account tasks"
+}
+
+variable "remote-accounts" {
+  type        = list(string)
+  description = "List of account IDs where users can provision instances (excl. the main account)."
+}
+
 variable "instance-tags" {
   type = list(object({
     tag-name  = string,
@@ -85,12 +95,14 @@ variable "resource-tags" {
 }
 
 variable "regional-data" {
-  type = map(object({
+  type = list(object({
+    account-id   = string,
+    region       = string,
     ssh-key-name = string,
     vpc-id       = string,
     subnet-id    = list(string),
   }))
-  default     = {}
+  default     = []
   description = "Instance configuration dictionary. Os-type should be 'windows' or 'linux'"
 }
 
@@ -98,15 +110,15 @@ variable "permission-data" {
   type = map(object({
     instance-types = list(string),
     operating-systems = list(object({
-      name                  = string,
-      connection-protocol   = string,
-      instance-profile-name = string,
-      template-filename     = string,
-      user-data-file        = string,
-      region-map = map(object({
-        security-group = string,
-        ami            = string,
-      }))
+      name                = string,
+      connection-protocol = string,
+      template-filename   = string,
+      user-data-file      = string,
+      region-map = map(map(object({
+        security-group        = string,
+        instance-profile-name = string,
+        ami                   = string,
+      })))
     })),
     max-instance-count  = number,
     max-days-to-expiry  = number,

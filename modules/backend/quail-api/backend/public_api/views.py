@@ -11,11 +11,12 @@ from backend.aws_utils import (
     get_claims,
     get_owned_stacksets,
     get_instance_details,
-    get_account_id,
     provision_stackset,
     get_stackset_state_data,
     update_stackset,
     initiate_stackset_deprovisioning,
+    stop_instance,
+    start_instance,
 )
 from backend.exceptions import (
     UnauthorizedForInstanceError,
@@ -76,15 +77,16 @@ def post_instances():
 
     # Get params the user has permissions for
     permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
+    permitted_accounts = list(permissions["region_map"].keys())
 
     # Validate the user provided params, raises a ValidationException if user has no permissions
-    current_account_id = get_account_id()
     serializer = instance_post_serializer(
-        current_account_id=current_account_id,
-        regions=permissions["region_map"].keys(),
+        accounts=permitted_accounts,
+        region_map=permissions["region_map"],
         instance_types=permissions["instance_types"],
-        operating_systems=permissions["region_map"].get(payload.get("region"), []),
         max_days_to_expiry=permissions["max_days_to_expiry"],
+        initiatorUsername=username,
+        initatorEmail=email,
         is_superuser=is_superuser,
     )
     try:
@@ -97,13 +99,10 @@ def post_instances():
         }
 
     # Check if instance count is within limits if the user isn't a superuser
-    if is_superuser:
-        stack_email = data.pop("email")
-        stack_username = data.pop("username")
-    else:
-        stack_email = email
-        stack_username = username
+    stack_email = data.pop("email")
+    stack_username = data.pop("username")
 
+    if not is_superuser:
         stacksets = get_owned_stacksets(table_name=state_table, email=stack_email)
         if len(stacksets) >= permissions["max_instance_count"]:
             return {
@@ -148,8 +147,12 @@ def post_instance_start(stackset_id):
 
     instances = get_instance_details(stacksets=[stackset_data])
 
-    client = boto3.client("ec2", region_name=instances[0]["region"])
-    client.start_instances(InstanceIds=[instances[0]["instance_id"]])
+    target_instance = instances[0]
+    start_instance(
+        account_id=target_instance["account_id"],
+        region_name=target_instance["region"],
+        instance_id=target_instance["instance_id"],
+    )
 
     return {}, 204
 
@@ -171,8 +174,12 @@ def post_instance_stop(stackset_id):
 
     instances = get_instance_details(stacksets=[stackset_data])
 
-    client = boto3.client("ec2", region_name=instances[0]["region"])
-    client.stop_instances(InstanceIds=[instances[0]["instance_id"]])
+    target_instance = instances[0]
+    stop_instance(
+        account_id=target_instance["account_id"],
+        region_name=target_instance["region"],
+        instance_id=target_instance["instance_id"],
+    )
 
     return {}, 204
 

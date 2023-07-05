@@ -34,8 +34,10 @@ const InstanceForm = (props) => {
   const classes = useStyles();
   const {
     is_superuser,
+    accounts,
     regions,
     selectedRegion,
+    selectedAccount,
     instanceTypes,
     selectedInstanceType,
     operatingSystems,
@@ -76,7 +78,7 @@ const InstanceForm = (props) => {
     content = (
       <>
         {is_superuser ? (
-          <Grid container spacing={3} justifyContent="center" alignItems="center">
+          <Grid container spacing={3} justifyContent="center" alignItems="center" pb={1}>
             <Grid item xs={3}>
               <TextField
                 label="User name"
@@ -102,11 +104,23 @@ const InstanceForm = (props) => {
           </Grid>
         ) : ''}
 
-        <Grid container spacing={3} justifyContent="center" alignItems="center">
+        <Grid container spacing={3} justifyContent="center" alignItems="center" pb={1}>
+          <Grid item xs={2}>
+            <SelectField
+              label="Account"
+              fieldName="selectedAccount"
+              values={accounts}
+              selected={selectedAccount}
+              onFieldChange={onFieldChange}
+              disabled={formDisabled}
+              classes={classes}
+            />
+          </Grid>
+
           <Grid item xs={2}>
             <SelectField
               label="Region"
-              fieldName="region"
+              fieldName="selectedRegion"
               values={regions}
               valueLabels={labels.regions}
               selected={selectedRegion}
@@ -180,7 +194,9 @@ const InstanceForm = (props) => {
               variant="standard"
             />
           </Grid>
+        </Grid>
 
+        <Grid container spacing={3} justifyContent="center" alignItems="center" pb={1}>
           <Grid item xs={2} className={classes.buttonRoot}>
             <DebouncedButton
               variant="contained"
@@ -193,7 +209,6 @@ const InstanceForm = (props) => {
               Provision
             </DebouncedButton>
           </Grid>
-
         </Grid>
       </>
     );

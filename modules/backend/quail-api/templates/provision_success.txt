@@ -1,6 +1,7 @@
 The following compute instance has been provisioned successfully:
 
 * name {{instance_name}}
+* account: {{account}}
 * region: {{region}}
 * operation system: {{os}}
 * type: {{instance_type}}

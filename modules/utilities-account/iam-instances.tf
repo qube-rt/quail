@@ -31,13 +31,15 @@ data "aws_iam_policy_document" "instance_profile_policy" {
     actions = [
       "s3:GetObject",
     ]
-    resources = ["*"]
+    resources = [
+      "${var.user-data-bucket}/*"
+    ]
   }
 }
 
-resource "aws_iam_role_policy" "iam_role_policy_for_cleanup_scheduled_lambda" {
+resource "aws_iam_role_policy" "ec2_instance_profile" {
   role        = aws_iam_role.instance_profile_role.id
-  name_prefix = "${var.project-name}-cleanup-scheduled-lambda-policy"
+  name_prefix = "${var.project-name}-ec2-instance-profile"
   policy      = data.aws_iam_policy_document.instance_profile_policy.json
 }
 

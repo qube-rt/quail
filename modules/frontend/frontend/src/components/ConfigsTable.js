@@ -33,6 +33,7 @@ export default function ConfigsTable(props) {
       <Table className={classes.table} size="small">
         <TableHead>
           <TableRow>
+            <TableCell className={classes.tableHeaderCell}>Account</TableCell>
             <TableCell className={classes.tableHeaderCell}>Region</TableCell>
             <TableCell className={classes.tableHeaderCell}>Instance Type</TableCell>
             <TableCell className={classes.tableHeaderCell}>Operating System</TableCell>
@@ -47,6 +48,7 @@ export default function ConfigsTable(props) {
               className={classes.tableRow}
               onClick={(e) => onRestoreClick(e, config)}
             >
+              <TableCell className={classes.tableCell}>{config.account}</TableCell>
               <TableCell className={classes.tableCell}>
                 { getLabel('regions', config.region) }
               </TableCell>

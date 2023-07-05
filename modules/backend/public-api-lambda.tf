@@ -24,6 +24,17 @@ data "aws_iam_policy_document" "public_api" {
     resources = ["${aws_cloudwatch_log_group.public_api.arn}:*"]
   }
 
+  # Permissions to assume roles in remote accounts
+  statement {
+    effect = "Allow"
+    actions = [
+      "sts:AssumeRole",
+    ]
+    resources = [
+      for account_id in var.remote-accounts : "arn:aws:iam::${account_id}:role/${var.cross-account-role-name}"
+    ]
+  }
+
   # DynamoDB-related permissions
   statement {
     effect = "Allow"
@@ -144,6 +155,7 @@ resource "aws_lambda_function" "public_api" {
       "DYNAMODB_STATE_TABLE_NAME"       = aws_dynamodb_table.dynamodb-state-table.name
       "PROVISION_SFN_ARN"               = aws_sfn_state_machine.provision_state_machine.arn
       "CLEANUP_SFN_ARN"                 = aws_sfn_state_machine.cleanup_state_machine.arn
+      "CROSS_ACCOUNT_ROLE_NAME"         = var.cross-account-role-name
       "FLASK_DEBUG"                     = 1
       "FLASK_ENV"                       = "development"
       "GUNICORN_WORKERS"                = 1

@@ -13,7 +13,7 @@ fmt:
 	cd modules/okta-data && terraform fmt
 	cd modules/frontend && terraform fmt
 	cd modules/frontend-ecs-hosting && terraform fmt
-	cd modules/utilities-global && terraform fmt
+	cd modules/utilities-account && terraform fmt
 	cd modules/utilities-regional && terraform fmt
 
 backend-lint:

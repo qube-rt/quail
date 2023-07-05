@@ -1,7 +1,13 @@
 variable "profile" {
   type        = string
   default     = "default"
-  description = "AWS configuration profile used with terraform"
+  description = "AWS configuration profile used with terraform for the main account"
+}
+
+variable "profile-second-account" {
+  type        = string
+  default     = "default"
+  description = "AWS configuration profile used with terraform for the secound account"
 }
 
 variable "region-primary" {
