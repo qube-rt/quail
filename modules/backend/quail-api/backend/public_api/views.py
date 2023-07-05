@@ -85,8 +85,8 @@ def post_instances():
         region_map=permissions["region_map"],
         instance_types=permissions["instance_types"],
         max_days_to_expiry=permissions["max_days_to_expiry"],
-        initiatorUsername=username,
-        initatorEmail=email,
+        initiator_username=username,
+        initator_email=email,
         is_superuser=is_superuser,
     )
     try:

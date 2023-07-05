@@ -53,7 +53,7 @@ def post_provision():
         "username": payload["username"],
     }
     region = params["region"]
-    accountId = params["account"]
+    account_id = params["account"]
 
     # read in data from environment
     project_name = current_app.config["PROJECT_NAME"]
@@ -115,15 +115,15 @@ def post_provision():
             },
             {
                 "ParameterKey": "AMI",
-                "ParameterValue": os_config["region-map"][accountId][region]["ami"],
+                "ParameterValue": os_config["region-map"][account_id][region]["ami"],
             },
             {
                 "ParameterKey": "SecurityGroupId",
-                "ParameterValue": os_config["region-map"][accountId][region]["security-group"],
+                "ParameterValue": os_config["region-map"][account_id][region]["security-group"],
             },
             {
                 "ParameterKey": "InstanceProfileName",
-                "ParameterValue": os_config["region-map"][accountId][region]["instance-profile-name"],
+                "ParameterValue": os_config["region-map"][account_id][region]["instance-profile-name"],
             },
             # Tags
             {
@@ -167,11 +167,11 @@ def post_provision():
     )
     stackset_id = response["StackSetId"]
 
-    region_params = get_params_for_region(table_name=regional_metadata_table, accountId=accountId, region=region)
+    region_params = get_params_for_region(table_name=regional_metadata_table, account_id=account_id, region=region)
 
     client.create_stack_instances(
         StackSetName=stackset_id,
-        Accounts=[accountId],
+        Accounts=[account_id],
         Regions=[region],
         ParameterOverrides=[
             {

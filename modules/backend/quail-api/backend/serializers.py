@@ -9,8 +9,8 @@ def instance_post_serializer(
     region_map,
     instance_types,
     max_days_to_expiry,
-    initiatorUsername,
-    initatorEmail,
+    initiator_username,
+    initator_email,
     is_superuser,
 ):
     min_date = datetime.now(timezone.utc) + timedelta(hours=2)
@@ -39,8 +39,8 @@ def instance_post_serializer(
                 ),
             ),
         )
-        email = fields.Email(required=True, validate=validate_equal_or_superuser(initatorEmail))
-        username = fields.Str(required=True, validate=validate_equal_or_superuser(initiatorUsername))
+        email = fields.Email(required=True, validate=validate_equal_or_superuser(initator_email))
+        username = fields.Str(required=True, validate=validate_equal_or_superuser(initiator_username))
 
         @validates_schema
         def validate_lower_bound(self, data, **kwargs):

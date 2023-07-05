@@ -1,4 +1,3 @@
-import functools
 import json
 import logging
 from collections import defaultdict
@@ -137,9 +136,9 @@ def get_os_config(table_name, groups, os_name):
     return result[0]
 
 
-def get_params_for_region(table_name, accountId, region):
+def get_params_for_region(table_name, account_id, region):
     client = boto3.client("dynamodb")
-    regional_data = client.get_item(TableName=table_name, Key={"accountId": {"S": accountId}, "region": {"S": region}})
+    regional_data = client.get_item(TableName=table_name, Key={"accountId": {"S": account_id}, "region": {"S": region}})
 
     if "Item" not in regional_data:
         raise PermissionsMissing(message=f"The region '{region}' does not have any configuration associated with it.")
