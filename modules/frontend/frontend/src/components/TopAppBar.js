@@ -67,7 +67,7 @@ const TopAppBar = ({ onReload }) => {
         </span>
         <div>
           <FormControlLabel
-            control={<Switch checked={isDark} onChange={handleThemeChange} />}
+            control={<Switch checked={isDark} onChange={handleThemeChange} color="primary" />}
             label={<Brightness4Icon className={classes.toggleIcon} />}
           />
           <Button onClick={logout} color="inherit">Logout</Button>
