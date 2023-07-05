@@ -7,10 +7,20 @@ provider "aws" {
 provider "aws" {
   profile = var.profile
   region  = "us-east-1"
-  alias   = "secondary"
+  alias   = "secondary-region"
+}
+
+provider "aws" {
+  profile = var.profile-second-account
+  region  = "eu-west-1"
+  alias   = "secondary-account-main-region"
 }
 
 data "aws_caller_identity" "primary" {
+}
+
+data "aws_caller_identity" "second" {
+  provider = aws.secondary-account-main-region
 }
 
 provider "okta" {

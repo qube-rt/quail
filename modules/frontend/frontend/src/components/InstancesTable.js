@@ -146,6 +146,7 @@ export default function InstancesTable(props) {
                   <TableCell className={classes.tableHeaderCell}>Owner</TableCell>
                 </>
               ) : <></> }
+              <TableCell className={classes.tableHeaderCell}>Account</TableCell>
               <TableCell className={classes.tableHeaderCell}>Region</TableCell>
               <TableCell className={classes.tableHeaderCell}>Instance Type</TableCell>
               <TableCell className={classes.tableHeaderCell}>Operating System</TableCell>
@@ -171,6 +172,7 @@ export default function InstancesTable(props) {
                     </TableCell>
                   </>
                 ) : <></> }
+                <TableCell className={classes.tableCell}>{instance.account_id}</TableCell>
                 <TableCell className={classes.tableCell}>
                   { getLabel('regions', instance.region) }
                 </TableCell>

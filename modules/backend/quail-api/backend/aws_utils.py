@@ -1,13 +1,11 @@
-import functools
 import json
 import logging
 from collections import defaultdict
 from datetime import datetime
 
 import boto3
-from flask import current_app
 
-from backend.exceptions import CrossAccountStackSetException, PermissionsMissing
+from backend.exceptions import PermissionsMissing
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -34,28 +32,8 @@ INSTANCES_STACK_STATUSES = {
     "UPDATE_COMPLETE",
 }
 
-
-def audit_logging_handler(handler):
-    """
-    Wrapper for logging calls parameters and results.
-    """
-
-    @functools.wraps(handler)
-    def inner(*args, **kwargs):
-        # Ignoring the Lambda context for logging purposes
-        try:
-            result = handler(*args, **kwargs)
-            logger.info({"event": args[0], "response": result, "type": "SUCCESS", "audit": 1})
-            return result
-        except Exception as e:  # noqa: B902
-            logger.info({"event": args[0], "response": str(e), "type": "ERROR", "audit": 1})
-            raise
-
-    return inner
-
-
-def get_account_id():
-    return boto3.client("sts").get_caller_identity().get("Account")
+# TODO: refactor the aws utils into a class so that this doesn't need to be hardcoded
+CROSS_ACCOUNT_ROLE_NAME = "quail-cross-account"
 
 
 def get_claims_list(value):
@@ -103,14 +81,17 @@ def get_permissions_for_groups(table_name, groups):
         fetched = client.get_item(TableName=table_name, Key={"group": {"S": group_name}})
 
         if "Item" not in fetched:
-            current_app.logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
+            logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
             continue
 
         item = fetched["Item"]
 
         result = {
             "instance_types": list(set([*result["instance_types"], *item["instanceTypes"]["SS"]])),
-            "operating_systems": [*result["operating_systems"], *json.loads(item["operatingSystems"]["S"])],
+            "operating_systems": [
+                *result["operating_systems"],
+                *json.loads(item["operatingSystems"]["S"]),
+            ],
             # Even though DynamoDB treats Number type as numeric internally, but accepts and returns them as strings,
             # hence the need to cast it explicitly
             # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes
@@ -119,10 +100,12 @@ def get_permissions_for_groups(table_name, groups):
             "max_extension_count": max([result["max_extension_count"], int(item["maxExtensionCount"]["N"])]),
         }
 
-    region_map = defaultdict(list)
+    region_map = defaultdict(lambda: defaultdict(list))
     for os_item in result["operating_systems"]:
-        for region_name in os_item["region-map"].keys():
-            region_map[region_name] += [os_item["name"]]
+        for account_id in os_item["region-map"].keys():
+            account_map = os_item["region-map"][account_id]
+            for region_name in account_map.keys():
+                region_map[account_id][region_name] += [os_item["name"]]
 
     result["region_map"] = region_map
 
@@ -137,7 +120,7 @@ def get_os_config(table_name, groups, os_name):
         fetched = client.get_item(TableName=table_name, Key={"group": {"S": group_name}})
 
         if "Item" not in fetched:
-            current_app.logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
+            logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
             continue
 
         os_configs = json.loads(fetched["Item"]["operatingSystems"]["S"])
@@ -148,14 +131,14 @@ def get_os_config(table_name, groups, os_name):
         raise PermissionsMissing(message=f"Could not find the permission for '{os_name}' in groups: {groups}.")
 
     if len(result) > 1:
-        current_app.logger.info(f"Multiple permissions for '{os_name}' in groups: {groups}.")
+        logger.info(f"Multiple permissions for '{os_name}' in groups: {groups}.")
 
     return result[0]
 
 
-def get_params_for_region(table_name, region):
+def get_params_for_region(table_name, account_id, region):
     client = boto3.client("dynamodb")
-    regional_data = client.get_item(TableName=table_name, Key={"region": {"S": region}})
+    regional_data = client.get_item(TableName=table_name, Key={"accountId": {"S": account_id}, "region": {"S": region}})
 
     if "Item" not in regional_data:
         raise PermissionsMissing(message=f"The region '{region}' does not have any configuration associated with it.")
@@ -244,9 +227,21 @@ def get_owned_stacksets(table_name, email, is_superuser=False):
     return stacksets
 
 
-def fetch_stackset_instances(stackset_id, acceptable_statuses=INSTANCES_STACK_STATUSES):
-    current_account_id = get_account_id()
+def assume_remote_role(account_id):
+    sts_client = boto3.client("sts")
+    response = sts_client.assume_role(
+        RoleArn=f"arn:aws:iam::{account_id}:role/{CROSS_ACCOUNT_ROLE_NAME}",
+        RoleSessionName=f"{account_id}-{CROSS_ACCOUNT_ROLE_NAME}",
+    )
+    remote_account_boto3 = boto3.Session(
+        aws_access_key_id=response["Credentials"]["AccessKeyId"],
+        aws_secret_access_key=response["Credentials"]["SecretAccessKey"],
+        aws_session_token=response["Credentials"]["SessionToken"],
+    )
+    return remote_account_boto3
 
+
+def fetch_stackset_instances(stackset_id, acceptable_statuses=INSTANCES_STACK_STATUSES):
     client = boto3.client("cloudformation")
     stack_instances = client.list_stack_instances(StackSetName=stackset_id)
 
@@ -260,10 +255,8 @@ def fetch_stackset_instances(stackset_id, acceptable_statuses=INSTANCES_STACK_ST
             # if this is called between creating the stackset and the stack instance being created
             continue
 
-        if account_id != current_account_id:
-            raise CrossAccountStackSetException("Cross-account instances currently not supported")
-
-        stack_client = boto3.client("cloudformation", region_name=region)
+        remote_account_boto3 = assume_remote_role(account_id=account_id)
+        stack_client = remote_account_boto3.client("cloudformation", region_name=region)
         described_stacks = stack_client.describe_stacks(StackName=stack_id)
         current_stack = described_stacks["Stacks"][0]
 
@@ -333,12 +326,13 @@ def annotate_with_instance_state(instances):
     region_to_instances = defaultdict(list)
     for item in instances:
         if "instance_id" in item:
-            region_to_instances[item["region"]].append(item["instance_id"])
+            region_to_instances[(item["account_id"], item["region"])].append(item["instance_id"])
 
     # Describe instances per region to get their current state
     state_dict = {}
-    for region, instance_ids in region_to_instances.items():
-        ec2_client = boto3.client("ec2", region_name=region)
+    for (account_id, region), instance_ids in region_to_instances.items():
+        remote_account_boto3 = assume_remote_role(account_id=account_id)
+        ec2_client = remote_account_boto3.client("ec2", region_name=region)
         described_instances = ec2_client.describe_instances(InstanceIds=instance_ids)
 
         for instance in described_instances.get("Reservations", []):
@@ -411,3 +405,15 @@ def update_stackset(stackset_id, **kwargs):
         Parameters=params,
         Capabilities=current_capabilities,
     )
+
+
+def stop_instance(account_id, region_name, instance_id):
+    remote_boto3 = assume_remote_role(account_id=account_id)
+    client = remote_boto3.client("ec2", region_name=region_name)
+    client.stop_instances(InstanceIds=[instance_id])
+
+
+def start_instance(account_id, region_name, instance_id):
+    remote_boto3 = assume_remote_role(account_id=account_id)
+    client = remote_boto3.client("ec2", region_name=region_name)
+    client.start_instances(InstanceIds=[instance_id])

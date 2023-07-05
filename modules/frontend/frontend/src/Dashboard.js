@@ -20,19 +20,21 @@ const Dashboard = () => {
   const { username: initialUsername, email: initialEmail, is_superuser } = getUserData();
 
   const [state, setState] = useState({
-    regionToOS: undefined,
+    regionMap: undefined,
 
     regions: [],
+    accounts: [],
     instanceTypes: [],
     operatingSystems: [],
     expiry: undefined,
-    region: undefined,
+    selectedRegion: undefined,
+    selectedAccount: undefined,
     operatingSystem: undefined,
     instanceType: undefined,
     maxExpiry: undefined,
     instanceName: '',
-    username: '',
-    email: '',
+    username: initialUsername,
+    email: initialEmail,
 
     currentInstances: undefined,
 
@@ -83,21 +85,23 @@ const Dashboard = () => {
     updateState({ pollInterval: interval });
   };
 
-  const handleReload = () => {
+  const handleReload = async () => {
     handleUnmount();
 
     updateState({
       regions: [],
+      accounts: [],
       instanceTypes: [],
       operatingSystems: [],
       expiry: undefined,
-      region: undefined,
+      selectedRegion: undefined,
+      selectedAccount: undefined,
       operatingSystem: undefined,
       instanceType: undefined,
       maxExpiry: undefined,
       instanceName: '',
-      username: '',
-      email: '',
+      username: initialUsername,
+      email: initialEmail,
 
       currentInstances: undefined,
 
@@ -111,22 +115,29 @@ const Dashboard = () => {
     // Fetch the params the user has permissions for
     appApi.getParams()
       .then(({ data }) => {
-        const { region_map, instance_types, max_days_to_expiry } = data;
+        const {
+          region_map, instance_types, max_days_to_expiry,
+        } = data;
 
         // Create a default expiry date, 25 hours in the future
         const startTime = moment().startOf('hour');
         const expiry = moment(startTime).add(25, 'hours');
         const maxExpiry = moment(startTime).add(parseInt(max_days_to_expiry, 10), 'days');
 
-        const selectedRegion = Object.keys(region_map)[0];
+        const accounts = Object.keys(region_map);
+        const selectedAccount = accounts[0];
+        const regions = Object.keys(region_map[selectedAccount]);
+        const selectedRegion = regions[0];
         updateState({
-          regionToOS: region_map,
-          regions: Object.keys(region_map),
-          region: selectedRegion,
+          regionMap: region_map,
           instanceTypes: instance_types,
           instanceType: instance_types[0],
-          operatingSystems: region_map[selectedRegion],
-          operatingSystem: region_map[selectedRegion][0],
+          operatingSystems: region_map[selectedAccount][selectedRegion],
+          operatingSystem: region_map[selectedAccount][selectedRegion][0],
+          accounts,
+          regions,
+          selectedAccount,
+          selectedRegion,
           expiry,
           maxExpiry,
         });
@@ -137,6 +148,7 @@ const Dashboard = () => {
       })
       .catch((response) => {
         updateState({
+          accounts: [],
           regions: [],
           instanceTypes: [],
           operatingSystems: [],
@@ -161,7 +173,7 @@ const Dashboard = () => {
     updateState({
       currentInstances: [
         {
-          ...pick(params, ['region', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
+          ...pick(params, ['selectedRegion', 'selectedAccount', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
           operatingSystemName: params.operatingSystem,
         },
         ...state.currentInstances,
@@ -323,8 +335,8 @@ const Dashboard = () => {
 
   const handleFieldChange = (event, fieldName) => {
     const changes = {};
-    if (fieldName === 'region') {
-      changes.operatingSystems = state.regionToOS[event.target.value];
+    if (fieldName === 'selectedRegion') {
+      changes.operatingSystems = state.regionMap[state.selectedAccount][event.target.value];
     }
 
     updateState({
@@ -342,8 +354,13 @@ const Dashboard = () => {
   };
 
   const handleRestoreClick = (event, request) => {
+    const pastRequest = {
+      selectedAccount: request.account,
+      selectedRegion: request.region,
+      ...pick(request, ['operatingSystem', 'instanceType']),
+    };
     updateState({
-      ...pick(request, ['region', 'operatingSystem', 'instanceType']),
+      ...pastRequest,
     });
   };
 
@@ -383,9 +400,11 @@ const Dashboard = () => {
     updateState({ provisionLoading: true });
 
     const params = {
-      ...pick(state, ['region', 'operatingSystem', 'instanceType', 'daysToExpiry', 'expiry', 'instanceName', 'email', 'username']),
+      ...pick(state, ['operatingSystem', 'instanceType', 'daysToExpiry', 'expiry', 'instanceName', 'email', 'username']),
     };
     params.expiry = params.expiry.toISOString();
+    params.account = state.selectedAccount;
+    params.region = state.selectedRegion;
     saveConfiguration(params);
 
     try {
@@ -414,11 +433,11 @@ const Dashboard = () => {
   }, []);
 
   const {
-    regions, instanceTypes, operatingSystems, expiry,
-    region, instanceType, operatingSystem, maxExpiry,
+    accounts, regions, instanceTypes, operatingSystems, expiry,
+    selectedRegion, instanceType, operatingSystem, maxExpiry,
     currentInstances, previousConfigs, provisionLoading,
     instanceName, formErrors, username,
-    email, nonFormError, formLoading,
+    email, nonFormError, formLoading, selectedAccount,
   } = state;
 
   return (
@@ -445,8 +464,10 @@ const Dashboard = () => {
         <h2>Provision a new instance</h2>
         <InstanceForm
           is_superuser={is_superuser}
+          accounts={accounts}
           regions={regions}
-          selectedRegion={region}
+          selectedRegion={selectedRegion}
+          selectedAccount={selectedAccount}
           instanceTypes={instanceTypes}
           selectedInstanceType={instanceType}
           operatingSystems={operatingSystems}

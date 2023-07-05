@@ -52,6 +52,8 @@ def post_provision():
         "user_claims": payload["user"],
         "username": payload["username"],
     }
+    region = params["region"]
+    account_id = params["account"]
 
     # read in data from environment
     project_name = current_app.config["PROJECT_NAME"]
@@ -112,16 +114,16 @@ def post_provision():
                 "ParameterValue": os_config["user-data-file"],
             },
             {
-                "ParameterKey": "InstanceProfileName",
-                "ParameterValue": os_config["instance-profile-name"],
-            },
-            {
                 "ParameterKey": "AMI",
-                "ParameterValue": os_config["region-map"][params["region"]]["ami"],
+                "ParameterValue": os_config["region-map"][account_id][region]["ami"],
             },
             {
                 "ParameterKey": "SecurityGroupId",
-                "ParameterValue": os_config["region-map"][params["region"]]["security-group"],
+                "ParameterValue": os_config["region-map"][account_id][region]["security-group"],
+            },
+            {
+                "ParameterKey": "InstanceProfileName",
+                "ParameterValue": os_config["region-map"][account_id][region]["instance-profile-name"],
             },
             # Tags
             {
@@ -165,12 +167,11 @@ def post_provision():
     )
     stackset_id = response["StackSetId"]
 
-    region = params["region"]
-    region_params = get_params_for_region(table_name=regional_metadata_table, region=region)
+    region_params = get_params_for_region(table_name=regional_metadata_table, account_id=account_id, region=region)
 
     client.create_stack_instances(
         StackSetName=stackset_id,
-        Accounts=[params["account"]],
+        Accounts=[account_id],
         Regions=[region],
         ParameterOverrides=[
             {
@@ -252,6 +253,7 @@ def post_notify_success():
 
     for instance_data in fetch_stackset_instances(stackset_id=stackset_id):
         template_data = {
+            "account": instance_data["account_id"],
             "region": instance_data["region"],
             "os": instance_data["operatingSystemName"],
             "instance_type": instance_data["instanceType"],
@@ -291,6 +293,7 @@ def post_notify_failure():
 
     for instance_data in fetch_stackset_instances(stackset_id=stackset_id, acceptable_statuses=None):
         template_data = {
+            "account": instance_data["account_id"],
             "region": instance_data["region"],
             "os": instance_data["operatingSystemName"],
             "instance_type": instance_data["instanceType"],
@@ -344,6 +347,7 @@ def post_cleanup_start():
         current_app.logger.info("delete stack instance response: %s", response)
 
         template_data = {
+            "account": instance_data["account_id"],
             "region": instance_data["region"],
             "os": instance_data["operatingSystemName"],
             "instance_type": instance_data["instanceType"],
@@ -433,6 +437,7 @@ def post_cleanup_schedule():
                 # send notifications
                 for instance_data in fetch_stackset_instances(stackset_id=stackset_id):
                     template_data = {
+                        "account": instance_data["account_id"],
                         "instance_name": instance_data["instanceName"],
                         "region": instance_data["region"],
                         "os": instance_data["operatingSystemName"],

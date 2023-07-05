@@ -38,10 +38,6 @@ class StackSetCreationException(BaseQuailException):
     pass
 
 
-class CrossAccountStackSetException(BaseQuailException):
-    pass
-
-
 class StackSetExecutionInProgressException(BaseQuailException):
     status_code = 415
     message = "Try again later."

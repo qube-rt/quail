@@ -1,6 +1,7 @@
 This is an advance notice that the following compute instance is due to be decommissioned up at {{expiry}}:
 
 * name {{instance_name}}
+* account: {{account}}
 * region: {{region}}
 * operation system: {{os}}
 * type: {{instance_type}}

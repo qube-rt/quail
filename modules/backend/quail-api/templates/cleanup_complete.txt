@@ -1,6 +1,7 @@
 The following compute instance that has been provisioned by you has been automatically decommissioned: 
 
 * name {{instance_name}}
+* account: {{account}}
 * region: {{region}}
 * operation system: {{os}}
 * type: {{instance_type}}

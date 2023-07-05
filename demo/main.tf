@@ -1,66 +1,109 @@
 locals {
-  regional-data = {
-    eu-west-1 = {
+  cross-account-role-name = "${var.project-name}-cross-account"
+
+  regional-data = [
+    {
+      account-id   = "442249827373",
+      region       = "eu-west-1",
       ssh-key-name = module.utilities-regional-primary.ssh-key-name,
       vpc-id       = module.utilities-regional-primary.vpc-id,
       subnet-id    = module.utilities-regional-primary.subnet-ids,
     },
-    us-east-1 = {
+    {
+      account-id   = "442249827373",
+      region       = "us-east-1",
       ssh-key-name = module.utilities-regional-secondary.ssh-key-name,
       vpc-id       = module.utilities-regional-secondary.vpc-id,
       subnet-id    = module.utilities-regional-secondary.subnet-ids,
     },
-  }
+    {
+      account-id   = "815246801749",
+      region       = "eu-west-1",
+      ssh-key-name = module.utilities-regional-second-account-main-region.ssh-key-name,
+      vpc-id       = module.utilities-regional-second-account-main-region.vpc-id,
+      subnet-id    = module.utilities-regional-second-account-main-region.subnet-ids,
+    },
+  ]
 
   permission-data = {
     quail-developers = {
       instance-types = ["t3.nano", "t3.micro", "t3.small"],
       operating-systems = [
         {
-          name                  = "AWS Linux 2",
-          connection-protocol   = "ssh",
-          instance-profile-name = module.utilities-global.instance-profile-name,
-          template-filename     = "cfn-templates/aws_linux.yaml",
-          user-data-file        = "user-data/linux.sh",
+          name                = "AWS Linux 2",
+          connection-protocol = "ssh",
+          template-filename   = "cfn-templates/aws_linux.yaml",
+          user-data-file      = "user-data/linux.sh",
           region-map = {
-            eu-west-1 = {
-              security-group = module.utilities-regional-primary.security-group-id,
-              ami            = "ami-0bb3fad3c0286ebd5"
+            "442249827373" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-primary.security-group-id,
+                instance-profile-name = module.utilities-account-first.instance-profile-name,
+                ami                   = "ami-0bb3fad3c0286ebd5"
+              }
+              us-east-1 = {
+                security-group        = module.utilities-regional-secondary.security-group-id,
+                instance-profile-name = module.utilities-account-first.instance-profile-name,
+                ami                   = "ami-09te47d2ba12ee1ff75"
+              }
             }
-            us-east-1 = {
-              security-group = module.utilities-regional-secondary.security-group-id,
-              ami            = "ami-09te47d2ba12ee1ff75"
+            "815246801749" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-second-account-main-region.security-group-id,
+                instance-profile-name = module.utilities-account-second.instance-profile-name,
+                ami                   = "ami-09f6caae59175ba13"
+              }
             }
           }
         },
         {
           name                  = "Ubuntu 20.04",
           connection-protocol   = "ssh",
-          instance-profile-name = module.utilities-global.instance-profile-name,
+          instance-profile-name = module.utilities-account-first.instance-profile-name,
           template-filename     = "cfn-templates/ubuntu_2004.yaml",
           user-data-file        = "user-data/linux.sh",
           region-map = {
-            eu-west-1 = {
-              security-group = module.utilities-regional-primary.security-group-id,
-              ami            = "ami-0aef57767f5404a3c"
+            "442249827373" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-primary.security-group-id,
+                instance-profile-name = module.utilities-account-first.instance-profile-name,
+                ami                   = "ami-0aef57767f5404a3c"
+              },
+            },
+            "815246801749" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-second-account-main-region.security-group-id,
+                instance-profile-name = module.utilities-account-second.instance-profile-name,
+                ami                   = "ami-0136ddddd07f0584f"
+              }
             }
           }
         },
         {
           name                  = "Windows Server 2019",
           connection-protocol   = "rdp",
-          instance-profile-name = module.utilities-global.instance-profile-name,
+          instance-profile-name = module.utilities-account-first.instance-profile-name,
           template-filename     = "cfn-templates/windows_server_2019.yaml",
           user-data-file        = "user-data/windows.ps1",
           region-map = {
-            eu-west-1 = {
-              security-group = module.utilities-regional-primary.security-group-id,
-              ami            = "ami-0a262e3ac12949132"
+            "442249827373" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-primary.security-group-id,
+                instance-profile-name = module.utilities-account-first.instance-profile-name,
+                ami                   = "ami-0a262e3ac12949132"
+              }
+              us-east-1 = {
+                security-group        = module.utilities-regional-secondary.security-group-id,
+                instance-profile-name = module.utilities-account-first.instance-profile-name,
+                ami                   = "ami-0eb7fbcc77e5e6ec6"
+              }
             }
-            us-east-1 = {
-              security-group = module.utilities-regional-secondary.security-group-id,
-              ami            = "ami-0eb7fbcc77e5e6ec6"
-
+            "815246801749" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-second-account-main-region.security-group-id,
+                instance-profile-name = module.utilities-account-second.instance-profile-name,
+                ami                   = "ami-09a485cf21c2d65e1"
+              }
             }
           }
         },
@@ -71,43 +114,53 @@ locals {
     },
     quail-quants = {
       instance-types = ["t3.micro", "t3.small"],
+      accounts       = ["442249827373", "815246801749"],
       operating-systems = [
         {
           name                  = "AWS Linux 2",
-          instance-profile-name = module.utilities-global.instance-profile-name,
+          instance-profile-name = module.utilities-account-first.instance-profile-name,
           connection-protocol   = "ssh",
           template-filename     = "cfn-templates/aws_linux.yaml",
           user-data-file        = "user-data/linux.sh",
           region-map = {
-            eu-west-1 = {
-              security-group = module.utilities-regional-primary.security-group-id,
-              ami            = "ami-0bb3fad3c0286ebd5"
+            "442249827373" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-primary.security-group-id,
+                instance-profile-name = module.utilities-account-first.instance-profile-name,
+                ami                   = "ami-0bb3fad3c0286ebd5"
+              }
             }
           }
         },
         {
           name                  = "Windows Server 2019",
-          instance-profile-name = module.utilities-global.instance-profile-name,
+          instance-profile-name = module.utilities-account-first.instance-profile-name,
           connection-protocol   = "rdp",
           template-filename     = "cfn-templates/windows_server_2019.yaml",
           user-data-file        = "user-data/windows.ps1",
           region-map = {
-            eu-west-1 = {
-              security-group = module.utilities-regional-primary.security-group-id,
-              ami            = "ami-0a262e3ac12949132"
+            "442249827373" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-primary.security-group-id,
+                instance-profile-name = module.utilities-account-first.instance-profile-name,
+                ami                   = "ami-0a262e3ac12949132"
+              }
             }
           }
         },
         {
           name                  = "Ubuntu 20.04",
-          instance-profile-name = module.utilities-global.instance-profile-name,
+          instance-profile-name = module.utilities-account-first.instance-profile-name,
           connection-protocol   = "ssh",
           template-filename     = "cfn-templates/ubuntu_2004.yaml",
           user-data-file        = "user-data/linux.sh",
           region-map = {
-            eu-west-1 = {
-              security-group = module.utilities-regional-primary.security-group-id,
-              ami            = "ami-0aef57767f5404a3c"
+            "442249827373" = {
+              eu-west-1 = {
+                security-group        = module.utilities-regional-primary.security-group-id,
+                instance-profile-name = module.utilities-account-first.instance-profile-name,
+                ami                   = "ami-0aef57767f5404a3c"
+              }
             }
           }
         },
@@ -137,8 +190,8 @@ module "backend" {
   support-localhost-urls = var.support-localhost-urls
   hosting-domain         = var.hosting-domain
   hosted-zone-name       = var.hosted-zone-name
-  jwt-issuer = module.okta-app.auth_server_issuer
-  jwt-audience = [module.okta-app.oauth_app_client_id]
+  jwt-issuer             = module.okta-app.auth_server_issuer
+  jwt-audience           = [module.okta-app.oauth_app_client_id]
 
   # Tag config
   instance-tags = var.instance-tags
@@ -149,7 +202,9 @@ module "backend" {
   permission-data = local.permission-data
 
   # Other
-  cfn_data_bucket = aws_s3_bucket.cfn_data_bucket.bucket
+  cfn_data_bucket         = aws_s3_bucket.cfn_data_bucket.bucket
+  cross-account-role-name = local.cross-account-role-name
+  remote-accounts         = [data.aws_caller_identity.second.account_id]
 }
 
 module "frontend" {
@@ -164,10 +219,10 @@ module "frontend" {
   resource-tags = var.resource-tags
 
   # Application config
-  api-root-url      = module.backend.api-root-url
+  api-root-url = module.backend.api-root-url
 
   # Okta Auth config
-  jwt-issuer = module.okta-app.auth_server_issuer
+  jwt-issuer    = module.okta-app.auth_server_issuer
   jwt-client-id = module.okta-app.oauth_app_client_id
 }
 
@@ -189,11 +244,21 @@ module "frontend-ecs-hosting" {
   hosted-zone-name   = var.hosted-zone-name
 }
 
-module "utilities-global" {
-  source = "../modules/utilities-global"
+############################################
+# Infrastructure set up in the first account
+############################################
+module "utilities-account-first" {
+  source = "../modules/utilities-account"
 
   # Project definition vars
-  project-name = var.project-name
+  project-name            = var.project-name
+  account-primary = data.aws_caller_identity.primary.account_id
+  user-data-bucket        = aws_s3_bucket.cfn_data_bucket.arn
+  cross-account-role-name = local.cross-account-role-name
+  cross-account-principals = [
+    module.backend.public-api-assumed-role,
+    module.backend.private-api-assumed-role,
+  ]
 
   # Tag config
   resource-tags = var.resource-tags
@@ -213,7 +278,7 @@ module "utilities-regional-secondary" {
   source = "../modules/utilities-regional"
 
   providers = {
-    aws = aws.secondary
+    aws = aws.secondary-region
   }
 
   # Project definition vars
@@ -223,11 +288,52 @@ module "utilities-regional-secondary" {
   resource-tags = var.resource-tags
 }
 
+#############################################
+# Infrastructure set up in the second account
+#############################################
+module "utilities-account-second" {
+  source = "../modules/utilities-account"
+
+  providers = {
+    aws = aws.secondary-account-main-region
+  }
+
+  # Project definition vars
+  project-name            = var.project-name
+  account-primary = data.aws_caller_identity.primary.account_id
+  user-data-bucket        = aws_s3_bucket.cfn_data_bucket.arn
+  cross-account-role-name = local.cross-account-role-name
+  cross-account-principals = [
+    module.backend.public-api-assumed-role,
+    module.backend.private-api-assumed-role,
+  ]
+
+  # Tag config
+  resource-tags = var.resource-tags
+}
+
+module "utilities-regional-second-account-main-region" {
+  source = "../modules/utilities-regional"
+
+  providers = {
+    aws = aws.secondary-account-main-region
+  }
+
+  # Project definition vars
+  project-name = var.project-name
+
+  # Tag config
+  resource-tags = var.resource-tags
+}
+
+###################
+# Identity provider
+###################
 module "okta-app" {
   source = "../modules/okta-app"
 
   project-name = var.project-name
-  okta-groups = module.okta-data.okta-groups
+  okta-groups  = module.okta-data.okta-groups
 }
 
 module "okta-data" {
