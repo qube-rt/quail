@@ -3,6 +3,44 @@ import { red } from '@mui/material/colors';
 
 // A dark theme for this app, adapted from https://www.58bits.com/blog/2020/05/27/material-ui-theme-switcher-react
 const theme = createTheme({
+  components: {
+    MuiSwitch: {
+      styleOverrides: {
+        switchBase: {
+          // Controls default (unchecked) color for the thumb
+          color: '#ccc',
+        },
+        colorPrimary: {
+          '&.Mui-checked': {
+            // Controls checked color for the thumb
+            color: '#fff',
+          },
+        },
+        track: {
+          // Controls default (unchecked) color for the track
+          opacity: 0.2,
+          backgroundColor: '#fff',
+          '.Mui-checked.Mui-checked + &': {
+            // Controls checked color for the track
+            opacity: 0.7,
+            backgroundColor: '#fff',
+          },
+        },
+      },
+    },
+    MuiTypography: {
+      variants: [
+        {
+          props: { variant: 'h5' }, /* component props */
+          style: {
+            /* your style here: */
+            color: 'white',
+            fontWeight: 'bold',
+          },
+        },
+      ],
+    },
+  },
   breakpoints: {
     values: {
       xs: 0,
@@ -18,6 +56,9 @@ const theme = createTheme({
         margin: '4 0',
       },
     },
+  },
+  typography: {
+    color: 'white',
   },
   palette: {
     type: 'dark',
@@ -43,6 +84,7 @@ const theme = createTheme({
       main: '#555555',
       contrastText: '#ffffff',
     },
+
   },
 });
 

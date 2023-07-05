@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 import pick from 'lodash/pick';
-import { Container, Box } from '@mui/material';
+import { Container, Box, Typography } from '@mui/material';
 import moment from 'moment';
 import { enqueueSnackbar } from 'notistack';
 
@@ -447,7 +447,7 @@ const Dashboard = () => {
       />
 
       <Box my={6}>
-        <h2>Currently running instances</h2>
+        <Typography variant="h5">Currently running instances</Typography>
         <InstancesTable
           is_superuser={is_superuser}
           instances={currentInstances}
@@ -461,7 +461,7 @@ const Dashboard = () => {
       </Box>
 
       <Box my={6}>
-        <h2>Provision a new instance</h2>
+        <Typography variant="h5" mb={3}>Provision a new instance</Typography>
         <InstanceForm
           is_superuser={is_superuser}
           accounts={accounts}
@@ -488,7 +488,7 @@ const Dashboard = () => {
       </Box>
 
       <Box my={6}>
-        <h2>Most recently used 10 configurations</h2>
+        <Typography variant="h5">Most recently used 10 configurations</Typography>
         <ConfigsTable configs={previousConfigs} onRestoreClick={handleRestoreClick} />
       </Box>
 
