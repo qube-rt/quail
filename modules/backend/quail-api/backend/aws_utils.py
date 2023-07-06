@@ -47,6 +47,8 @@ class AwsUtils:
         error_topic_arn,
         cleanup_sfn_arn,
         cfn_data_bucket,
+        execution_role_name,
+        admin_role_arn,
     ):
         self.permissions_table_name = permissions_table_name
         self.regional_data_table_name = regional_data_table_name
@@ -59,6 +61,8 @@ class AwsUtils:
         self.error_topic_arn = error_topic_arn
         self.cross_account_role_name = cross_account_role_name
         self.cfn_data_bucket = cfn_data_bucket
+        self.execution_role_name = execution_role_name
+        self.admin_role_arn = admin_role_arn
 
     def get_claims_list(self, value):
         # Accepts a string representation of a list, returns a python list
@@ -560,8 +564,8 @@ class AwsUtils:
                     "ParameterValue": "",
                 },
             ],
-            # AdministrationRoleARN='string',
-            # ExecutionRoleName='string',
+            AdministrationRoleARN=self.admin_role_arn,
+            ExecutionRoleName=self.execution_role_name,
             PermissionModel="SELF_MANAGED",
         )
         stackset_id = response["StackSetId"]

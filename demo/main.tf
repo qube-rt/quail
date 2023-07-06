@@ -1,6 +1,8 @@
 locals {
-  cross-account-role-name = "${var.project-name}-cross-account"
-  admin-group-name        = "${var.project-name}-admins"
+  cross-account-role-name       = "${var.project-name}-cross-account"
+  admin-group-name              = "${var.project-name}-admins"
+  stack-set-admin-role-name     = "${var.project-name}-AWSCloudFormationStackSetExecutionRole"
+  stack-set-execution-role-name = "${var.project-name}-AWSCloudFormationStackSetExecutionRole"
 
   regional-data = [
     {
@@ -204,9 +206,10 @@ module "backend" {
   permission-data = local.permission-data
 
   # Other
-  cfn_data_bucket         = aws_s3_bucket.cfn_data_bucket.bucket
-  cross-account-role-name = local.cross-account-role-name
-  remote-accounts         = [data.aws_caller_identity.second.account_id]
+  cfn_data_bucket               = aws_s3_bucket.cfn_data_bucket.bucket
+  cross-account-role-name       = local.cross-account-role-name
+  stack-set-execution-role-name = local.stack-set-execution-role-name
+  remote-accounts               = [data.aws_caller_identity.second.account_id]
 }
 
 module "frontend" {
@@ -253,10 +256,11 @@ module "utilities-account-first" {
   source = "../modules/utilities-account"
 
   # Project definition vars
-  project-name            = var.project-name
-  account-primary         = data.aws_caller_identity.primary.account_id
-  user-data-bucket        = aws_s3_bucket.cfn_data_bucket.arn
-  cross-account-role-name = local.cross-account-role-name
+  project-name                  = var.project-name
+  account-primary               = data.aws_caller_identity.primary.account_id
+  stack-set-execution-role-name = local.stack-set-execution-role-name
+  user-data-bucket              = aws_s3_bucket.cfn_data_bucket.arn
+  cross-account-role-name       = local.cross-account-role-name
   cross-account-principals = [
     module.backend.public-api-assumed-role,
     module.backend.private-api-assumed-role,
@@ -301,10 +305,11 @@ module "utilities-account-second" {
   }
 
   # Project definition vars
-  project-name            = var.project-name
-  account-primary         = data.aws_caller_identity.primary.account_id
-  user-data-bucket        = aws_s3_bucket.cfn_data_bucket.arn
-  cross-account-role-name = local.cross-account-role-name
+  project-name                  = var.project-name
+  account-primary               = data.aws_caller_identity.primary.account_id
+  stack-set-execution-role-name = local.stack-set-execution-role-name
+  user-data-bucket              = aws_s3_bucket.cfn_data_bucket.arn
+  cross-account-role-name       = local.cross-account-role-name
   cross-account-principals = [
     module.backend.public-api-assumed-role,
     module.backend.private-api-assumed-role,

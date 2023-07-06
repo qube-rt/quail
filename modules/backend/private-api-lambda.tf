@@ -30,6 +30,16 @@ data "aws_iam_policy_document" "private_api" {
     resources = ["${aws_cloudwatch_log_group.private_api.arn}:*"]
   }
 
+  # Permission to use the StackSet admin role
+  statement {
+    effect = "Allow"
+    actions = [
+      "iam:GetRole",
+      "iam:PassRole"
+    ]
+    resources = [aws_iam_role.stackset_admin_role.arn]
+  }
+
   # Permissions to assume roles in remote accounts
   statement {
     effect = "Allow"
@@ -229,6 +239,8 @@ resource "aws_lambda_function" "private_api" {
       "ADMIN_GROUP_NAME"                  = var.admin-group-name
       "SNS_ERROR_TOPIC_ARN"               = local.sns_error_topic_arn
       "CLEANUP_NOTICE_NOTIFICATION_HOURS" = jsonencode(var.cleanup-notice-notification-hours)
+      "STACK_SET_EXECUTION_ROLE_NAME"     = var.stack-set-execution-role-name
+      "STACK_SET_ADMIN_ROLE_ARN"          = aws_iam_role.stackset_admin_role.arn
 
       "FLASK_DEBUG"                  = local.quail-api-debug
       "FLASK_ENV"                    = local.quail-api-env
