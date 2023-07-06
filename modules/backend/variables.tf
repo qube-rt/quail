@@ -71,6 +71,11 @@ variable "remote-accounts" {
   description = "List of account IDs where users can provision instances (excl. the main account)."
 }
 
+variable "stack-set-execution-role-name" {
+  type        = string
+  description = "Name of the role assumed to create stack sets."
+}
+
 variable "instance-tags" {
   type = list(object({
     tag-name  = string,

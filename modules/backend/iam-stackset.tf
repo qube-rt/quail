@@ -1,15 +1,15 @@
 
 # Administrative Account Role
-data "aws_iam_policy_document" "stackset_admin_account_role_policy_document" {
+data "aws_iam_policy_document" "stackset_admin_role" {
 
   statement {
     effect    = "Allow"
     actions   = ["sts:AssumeRole"]
-    resources = ["arn:aws:iam::*:role/AWSCloudFormationStackSetExecutionRole"]
+    resources = ["arn:aws:iam::*:role/${var.stack-set-execution-role-name}"]
   }
 }
 
-data "aws_iam_policy_document" "stackset_admin_account_assume_role_policy_document" {
+data "aws_iam_policy_document" "stackset_admin_assume_role" {
 
   statement {
     effect  = "Allow"
@@ -25,14 +25,14 @@ data "aws_iam_policy_document" "stackset_admin_account_assume_role_policy_docume
   }
 }
 
-resource "aws_iam_role" "stackset_admin_account_role" {
-  name               = "AWSCloudFormationStackSetAdministrationRole"
-  assume_role_policy = data.aws_iam_policy_document.stackset_admin_account_assume_role_policy_document.json
+resource "aws_iam_role" "stackset_admin_role" {
+  name               = "${var.project-name}-StackSetAdministrationRole"
+  assume_role_policy = data.aws_iam_policy_document.stackset_admin_assume_role.json
   tags               = local.resource_tags
 }
 
-resource "aws_iam_role_policy" "stackset_admin_account_role_policy" {
-  name   = "${var.project-name}-AWSCloudFormationStackSetAdministrationRolePolicy"
-  policy = data.aws_iam_policy_document.stackset_admin_account_role_policy_document.json
-  role   = aws_iam_role.stackset_admin_account_role.id
+resource "aws_iam_role_policy" "stackset_admin_role_policy" {
+  name   = "${var.project-name}-StackSetAdministrationRolePolicy"
+  policy = data.aws_iam_policy_document.stackset_admin_role.json
+  role   = aws_iam_role.stackset_admin_role.id
 }

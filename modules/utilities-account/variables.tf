@@ -13,6 +13,11 @@ variable "user-data-bucket" {
   description = "ARN of the bucket storing user data"
 }
 
+variable "stack-set-execution-role-name" {
+  type        = string
+  description = "Name of the role assumed to create stack sets."
+}
+
 variable "cross-account-role-name" {
   type        = string
   description = "The name of the role assumed by the APIs to carry out cross-account tasks"
