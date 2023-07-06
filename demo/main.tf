@@ -1,5 +1,6 @@
 locals {
   cross-account-role-name = "${var.project-name}-cross-account"
+  admin-group-name        = "${var.project-name}-admins"
 
   regional-data = [
     {
@@ -192,6 +193,7 @@ module "backend" {
   hosted-zone-name       = var.hosted-zone-name
   jwt-issuer             = module.okta-app.auth_server_issuer
   jwt-audience           = [module.okta-app.oauth_app_client_id]
+  admin-group-name       = local.admin-group-name
 
   # Tag config
   instance-tags = var.instance-tags
@@ -252,7 +254,7 @@ module "utilities-account-first" {
 
   # Project definition vars
   project-name            = var.project-name
-  account-primary = data.aws_caller_identity.primary.account_id
+  account-primary         = data.aws_caller_identity.primary.account_id
   user-data-bucket        = aws_s3_bucket.cfn_data_bucket.arn
   cross-account-role-name = local.cross-account-role-name
   cross-account-principals = [
@@ -300,7 +302,7 @@ module "utilities-account-second" {
 
   # Project definition vars
   project-name            = var.project-name
-  account-primary = data.aws_caller_identity.primary.account_id
+  account-primary         = data.aws_caller_identity.primary.account_id
   user-data-bucket        = aws_s3_bucket.cfn_data_bucket.arn
   cross-account-role-name = local.cross-account-role-name
   cross-account-principals = [
@@ -339,5 +341,6 @@ module "okta-app" {
 module "okta-data" {
   source = "../modules/okta-data"
 
-  project-name = var.project-name
+  project-name     = var.project-name
+  admin-group-name = local.admin-group-name
 }

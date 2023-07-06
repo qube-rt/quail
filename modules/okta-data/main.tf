@@ -1,5 +1,5 @@
 resource "okta_group" "admins" {
-  name        = "${var.project-name}-admins"
+  name        = var.admin-group-name
   description = "${var.project-name} admin users"
 }
 

@@ -7,9 +7,9 @@ import boto3
 from flask import Flask, request
 from flask_cors import CORS
 
-from backend import commands
+from backend import commands, views
+from backend.aws_utils import AwsUtils
 from backend.exceptions import BaseQuailException
-from backend import views
 
 
 def create_base_app(config_object):
@@ -26,11 +26,12 @@ def create_base_app(config_object):
     register_commands(app)
     register_routes(app)
     configure_logger(app)
+    configure_aws_utils(app)
 
     return app
 
 
-def create_public_app(config_object="backend.settings.public_prod"):
+def create_public_app(config_object="backend.settings.prod"):
     app = create_base_app(config_object=config_object)
     configure_cors(app)
 
@@ -42,7 +43,7 @@ def create_public_app(config_object="backend.settings.public_prod"):
     return app
 
 
-def create_private_app(config_object="backend.settings.private_prod"):
+def create_private_app(config_object="backend.settings.prod"):
     app = create_base_app(config_object=config_object)
     from backend.private_api.blueprint import create_blueprint
 
@@ -166,3 +167,17 @@ def configure_logger(app):
 def register_routes(app):
     # Add rules for serving the API
     app.add_url_rule("/healthcheck", "healthcheck", view_func=views.get_healthcheck)
+
+
+def configure_aws_utils(app):
+    app.aws = AwsUtils(
+        permissions_table_name=app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"],
+        regional_data_table_name=app.config["DYNAMODB_REGIONAL_METADATA_TABLE_NAME"],
+        state_table_name=app.config["DYNAMODB_STATE_TABLE_NAME"],
+        cross_account_role_name=app.config["CROSS_ACCOUNT_ROLE_NAME"],
+        admin_group_name=app.config["ADMIN_GROUP_NAME"],
+        provision_sfn_arn=app.config["PROVISION_SFN_ARN"],
+        cleanup_sfn_arn=app.config["CLEANUP_SFN_ARN"],
+        error_topic_arn=app.config["SNS_ERROR_TOPIC_ARN"],
+        cfn_data_bucket=app.config["CFN_DATA_BUCKET"],
+    )

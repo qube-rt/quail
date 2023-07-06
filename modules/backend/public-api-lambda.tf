@@ -136,6 +136,9 @@ data "aws_ecr_image" "public_api" {
   depends_on = [null_resource.public_api_image_publish]
 }
 
+resource "random_password" "public_api_secret_key" {
+  length = 24
+}
 
 resource "aws_lambda_function" "public_api" {
   function_name = local.ecr_public_api_name
@@ -151,17 +154,30 @@ resource "aws_lambda_function" "public_api" {
 
   environment {
     variables = {
-      "DYNAMODB_PERMISSIONS_TABLE_NAME" = aws_dynamodb_table.permissions-table.name
-      "DYNAMODB_STATE_TABLE_NAME"       = aws_dynamodb_table.dynamodb-state-table.name
-      "PROVISION_SFN_ARN"               = aws_sfn_state_machine.provision_state_machine.arn
-      "CLEANUP_SFN_ARN"                 = aws_sfn_state_machine.cleanup_state_machine.arn
-      "CROSS_ACCOUNT_ROLE_NAME"         = var.cross-account-role-name
-      "FLASK_DEBUG"                     = 1
-      "FLASK_ENV"                       = "development"
-      "GUNICORN_WORKERS"                = 1
-      "LOG_LEVEL"                       = "debug"
-      "SECRET_KEY"                      = "not-so-secret"
-      "AWS_LWA_READINESS_CHECK_PATH"    = "/healthcheck"
+      "PROJECT_NAME" = var.project-name
+      "TAG_CONFIG"   = jsonencode(var.instance-tags)
+
+      "DYNAMODB_PERMISSIONS_TABLE_NAME"       = aws_dynamodb_table.permissions-table.name
+      "DYNAMODB_STATE_TABLE_NAME"             = aws_dynamodb_table.dynamodb-state-table.name
+      "DYNAMODB_REGIONAL_METADATA_TABLE_NAME" = aws_dynamodb_table.dynamodb-regional-metadata-table.name
+
+      "PROVISION_SFN_ARN"       = aws_sfn_state_machine.provision_state_machine.arn
+      "CLEANUP_SFN_ARN"         = aws_sfn_state_machine.cleanup_state_machine.arn
+      "CROSS_ACCOUNT_ROLE_NAME" = var.cross-account-role-name
+      "CFN_DATA_BUCKET"         = var.cfn_data_bucket
+
+      "NOTIFICATION_EMAIL"                = var.notification-email
+      "ADMIN_EMAIL"                       = var.admin-email
+      "ADMIN_GROUP_NAME"                  = var.admin-group-name
+      "SNS_ERROR_TOPIC_ARN"               = local.sns_error_topic_arn
+      "CLEANUP_NOTICE_NOTIFICATION_HOURS" = jsonencode(var.cleanup-notice-notification-hours)
+
+      "FLASK_DEBUG"                  = local.quail-api-debug
+      "FLASK_ENV"                    = local.quail-api-env
+      "GUNICORN_WORKERS"             = 1
+      "LOG_LEVEL"                    = local.quail-api-log-level
+      "SECRET_KEY"                   = random_password.public_api_secret_key.result
+      "AWS_LWA_READINESS_CHECK_PATH" = "/healthcheck"
     }
   }
 }

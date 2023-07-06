@@ -5,8 +5,10 @@ locals {
     },
     var.resource-tags
   )
-  lambda_path              = "${path.module}/lambda-src"
-  lambda_layer_path        = "${path.module}/lambda-layers"
+  quail-api-debug     = 1
+  quail-api-env       = "development"
+  quail-api-log-level = "debug"
+
   cloudwatch_log_retention = 0
   sns_error_topic_arn      = var.external-sns-failure-topic-arn == "" ? aws_sns_topic.error_topic[0].arn : var.external-sns-failure-topic-arn
   ecr_public_api_name      = "${var.project-name}-public-api"

@@ -2,22 +2,9 @@ import json
 from operator import itemgetter
 from datetime import timedelta
 
-import boto3
 from flask import current_app, request
 from marshmallow import ValidationError
 
-from backend.aws_utils import (
-    get_permissions_for_groups,
-    get_claims,
-    get_owned_stacksets,
-    get_instance_details,
-    provision_stackset,
-    get_stackset_state_data,
-    update_stackset,
-    initiate_stackset_deprovisioning,
-    stop_instance,
-    start_instance,
-)
 from backend.exceptions import (
     UnauthorizedForInstanceError,
     InvalidArgumentsError,
@@ -27,13 +14,10 @@ from backend.serializers import instance_post_serializer, instance_patch_seriali
 
 
 def get_params():
-    groups = itemgetter("groups")(get_claims(request=request))
-
-    # read in data from config
-    permissions_table = current_app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"]
+    groups = itemgetter("groups")(current_app.aws.get_claims(request=request))
 
     # Get config from dynamodb
-    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
+    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
 
     # Restructure the permissions
     del permissions["operating_systems"]
@@ -42,17 +26,15 @@ def get_params():
 
 
 def get_instances():
-    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(get_claims(request=request))
-
-    # read in data from environment
-    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
-    permissions_table = current_app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"]
+    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(
+        current_app.aws.get_claims(request=request)
+    )
 
     # Get config from dynamodb
-    stacksets = get_owned_stacksets(table_name=state_table, email=email, is_superuser=is_superuser)
-    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
+    stacksets = current_app.aws.get_owned_stacksets(email=email, is_superuser=is_superuser)
+    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
     max_extension_count = permissions["max_extension_count"]
-    instances = get_instance_details(
+    instances = current_app.aws.get_instance_details(
         stacksets=stacksets,
         max_extension_count=max_extension_count,
         is_superuser=is_superuser,
@@ -64,19 +46,14 @@ def get_instances():
 def post_instances():
     # Get auth params
     email, groups, username, is_superuser, claims = itemgetter("email", "groups", "username", "is_superuser", "claims")(
-        get_claims(request=request)
+        current_app.aws.get_claims(request=request)
     )
 
     # Get body params
     payload = request.json
 
-    # Read env data
-    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
-    permissions_table = current_app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"]
-    provision_sfn_arn = current_app.config["PROVISION_SFN_ARN"]
-
     # Get params the user has permissions for
-    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
+    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
     permitted_accounts = list(permissions["region_map"].keys())
 
     # Validate the user provided params, raises a ValidationException if user has no permissions
@@ -103,7 +80,7 @@ def post_instances():
     stack_username = data.pop("username")
 
     if not is_superuser:
-        stacksets = get_owned_stacksets(table_name=state_table, email=stack_email)
+        stacksets = current_app.aws.get_owned_stacksets(email=stack_email)
         if len(stacksets) >= permissions["max_instance_count"]:
             return {
                 "statusCode": 400,
@@ -114,8 +91,7 @@ def post_instances():
             }
 
     # Provision stackset
-    sfn_execution_arn = provision_stackset(
-        provision_sfn_arn=provision_sfn_arn,
+    sfn_execution_arn = current_app.aws.provision_stackset(
         email=stack_email,
         groups=groups,
         username=stack_username,
@@ -131,13 +107,10 @@ def post_instances():
 
 
 def post_instance_start(stackset_id):
-    email, is_superuser = itemgetter("email", "is_superuser")(get_claims(request=request))
-
-    # read in data from environment
-    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
+    email, is_superuser = itemgetter("email", "is_superuser")(current_app.aws.get_claims(request=request))
 
     # get details of the specified stackset
-    stackset_data = get_stackset_state_data(stackset_id=stackset_id, table_name=state_table)
+    stackset_data = current_app.aws.get_stackset_state_data(stackset_id=stackset_id)
     if not stackset_data or (stackset_data["email"] != email and not is_superuser):
         return {
             "statusCode": 400,
@@ -145,10 +118,10 @@ def post_instance_start(stackset_id):
             "headers": {"Content-Type": "application/json"},
         }
 
-    instances = get_instance_details(stacksets=[stackset_data])
+    instances = current_app.aws.get_instance_details(stacksets=[stackset_data])
 
     target_instance = instances[0]
-    start_instance(
+    current_app.aws.start_instance(
         account_id=target_instance["account_id"],
         region_name=target_instance["region"],
         instance_id=target_instance["instance_id"],
@@ -158,13 +131,10 @@ def post_instance_start(stackset_id):
 
 
 def post_instance_stop(stackset_id):
-    email, is_superuser = itemgetter("email", "is_superuser")(get_claims(request=request))
-
-    # read in data from environment
-    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
+    email, is_superuser = itemgetter("email", "is_superuser")(current_app.aws.get_claims(request=request))
 
     # get details of the specified stackset
-    stackset_data = get_stackset_state_data(stackset_id=stackset_id, table_name=state_table)
+    stackset_data = current_app.aws.get_stackset_state_data(stackset_id=stackset_id)
     if not stackset_data or (stackset_data["email"] != email and not is_superuser):
         return {
             "statusCode": 400,
@@ -172,10 +142,10 @@ def post_instance_stop(stackset_id):
             "headers": {"Content-Type": "application/json"},
         }
 
-    instances = get_instance_details(stacksets=[stackset_data])
+    instances = current_app.aws.get_instance_details(stacksets=[stackset_data])
 
     target_instance = instances[0]
-    stop_instance(
+    current_app.aws.stop_instance(
         account_id=target_instance["account_id"],
         region_name=target_instance["region"],
         instance_id=target_instance["instance_id"],
@@ -185,22 +155,20 @@ def post_instance_stop(stackset_id):
 
 
 def patch_instance(stackset_id):
-    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(get_claims(request=request))
+    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(
+        current_app.aws.get_claims(request=request)
+    )
 
     # Get body params
     payload = request.json
 
-    # read in data from environment
-    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
-    permissions_table = current_app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"]
-
     # get details of the specified stackset
-    stackset_data = get_stackset_state_data(stackset_id=stackset_id, table_name=state_table)
+    stackset_data = current_app.aws.get_stackset_state_data(stackset_id=stackset_id)
     if not stackset_data or (stackset_data["email"] != email and not is_superuser):
         raise UnauthorizedForInstanceError()
 
     # Get params the user has permissions for and sanitize input
-    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
+    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
     serializer = instance_patch_serializer(
         instance_types=permissions["instance_types"],
     )
@@ -211,25 +179,23 @@ def patch_instance(stackset_id):
         raise InvalidArgumentsError(message=str(e))
 
     instance_type = data["instance_type"]
-    update_stackset(stackset_id=stackset_id, InstanceType=instance_type)
+    current_app.aws.update_stackset(stackset_id=stackset_id, InstanceType=instance_type)
 
     return {}, 204
 
 
 def post_instance_extend(stackset_id):
-    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(get_claims(request=request))
-
-    # read in data from environment
-    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
-    permissions_table = current_app.config["DYNAMODB_PERMISSIONS_TABLE_NAME"]
+    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(
+        current_app.aws.get_claims(request=request)
+    )
 
     # get details of the specified stackset
-    stackset_data = get_stackset_state_data(stackset_id=stackset_id, table_name=state_table)
+    stackset_data = current_app.aws.get_stackset_state_data(stackset_id=stackset_id)
     if not stackset_data or (stackset_data["email"] != email and not is_superuser):
         raise UnauthorizedForInstanceError()
 
     # get user group permissions
-    permissions = get_permissions_for_groups(table_name=permissions_table, groups=groups)
+    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
     max_extension_count = permissions["max_extension_count"]
 
     # check user hasn't exceeded the max number of extensions
@@ -241,15 +207,8 @@ def post_instance_extend(stackset_id):
     new_expiry = stackset_data["expiry"] + timedelta(days=1)
     new_extension_count = stackset_data["extension_count"] + 1
 
-    client = boto3.client("dynamodb")
-    client.update_item(
-        TableName=state_table,
-        Key={"stacksetID": {"S": stackset_id}},
-        UpdateExpression="SET extensionCount = :extensionCount, expiry = :expiry",
-        ExpressionAttributeValues={
-            ":extensionCount": {"N": str(new_extension_count)},
-            ":expiry": {"S": new_expiry.isoformat()},
-        },
+    current_app.aws.update_instance_expiry(
+        stackset_id=stackset_id, expiry=new_expiry, extension_count=new_extension_count
     )
 
     return {
@@ -260,14 +219,10 @@ def post_instance_extend(stackset_id):
 
 
 def delete_instances(stackset_id):
-    email, is_superuser = itemgetter("email", "is_superuser")(get_claims(request=request))
-
-    # Read env data
-    state_table = current_app.config["DYNAMODB_STATE_TABLE_NAME"]
-    cleanup_sfn_arn = current_app.config["CLEANUP_SFN_ARN"]
+    email, is_superuser = itemgetter("email", "is_superuser")(current_app.aws.get_claims(request=request))
 
     # Check if the requester owns the stackset
-    stackset_data = get_stackset_state_data(stackset_id=stackset_id, table_name=state_table)
+    stackset_data = current_app.aws.get_stackset_state_data(stackset_id=stackset_id)
     if not stackset_data or (stackset_data["email"] != email and not is_superuser):
         return {
             "statusCode": 400,
@@ -277,9 +232,8 @@ def delete_instances(stackset_id):
 
     # Deprovision stackset
     owner_email = stackset_data["email"]
-    response = initiate_stackset_deprovisioning(
+    response = current_app.aws.initiate_stackset_deprovisioning(
         stackset_id=stackset_id,
-        cleanup_sfn_arn=cleanup_sfn_arn,
         owner_email=owner_email,
     )
     current_app.logger.info(f"SFN cleanup execution response: {response}")

@@ -17,3 +17,23 @@ PRESERVE_CONTEXT_ON_EXCEPTION = False
 
 # JWT settings
 JWT_ISSUER = env.str("JWT_ISSUER", default="quail")
+
+PROJECT_NAME = "quail-test"
+NOTIFICATION_EMAIL = "notifications@example.com"
+ADMIN_EMAIL = "admins@example.com"
+ADMIN_GROUP_NAME = "quail-admins"
+
+# AWS config
+DYNAMODB_PERMISSIONS_TABLE_NAME = "todo"
+DYNAMODB_STATE_TABLE_NAME = "todo"
+DYNAMODB_REGIONAL_METADATA_TABLE_NAME = "todo"
+
+PROVISION_SFN_ARN = "todo"
+CLEANUP_SFN_ARN = "todo"
+CFN_DATA_BUCKET = "todo"
+
+SNS_ERROR_TOPIC_ARN = "todo"
+CROSS_ACCOUNT_ROLE_NAME = "todo"
+
+CLEANUP_NOTICE_NOTIFICATION_HOURS = "todo"
+TAG_CONFIG = "todo"
