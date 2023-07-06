@@ -23,6 +23,11 @@ variable "admin-email" {
   description = "Email address where email failure emails will be CCed to."
 }
 
+variable "admin-group-name" {
+  type        = string
+  description = "Name of the admins Okta group."
+}
+
 variable "cleanup-notice-notification-hours" {
   type        = list(number)
   default     = [12]

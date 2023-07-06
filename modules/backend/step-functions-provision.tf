@@ -1,3 +1,7 @@
+locals {
+  provision_sfn_name = "${var.project-name}-provision-state-machine"
+}
+
 # CloudWatch log group
 resource "aws_cloudwatch_log_group" "provision_state_machine_log_group" {
   name              = "/aws/states/${var.project-name}/${aws_sfn_state_machine.provision_state_machine.name}"
@@ -56,7 +60,7 @@ resource "aws_iam_role_policy" "iam_role_policy_for_provision_state_machine" {
 resource "aws_sfn_state_machine" "provision_state_machine" {
   tags = local.resource_tags
 
-  name     = "${var.project-name}-provision-state-machine"
+  name     = local.provision_sfn_name
   role_arn = aws_iam_role.iam_role_for_provision_state_machine.arn
 
   definition = jsonencode({

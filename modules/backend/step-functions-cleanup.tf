@@ -1,3 +1,7 @@
+locals {
+  cleanup_sfn_name = "${var.project-name}-cleanup-state-machine"
+}
+
 # CloudWatch log group
 resource "aws_cloudwatch_log_group" "cleanup_state_machine_log_group" {
   name              = "/aws/states/${var.project-name}/${aws_sfn_state_machine.cleanup_state_machine.name}"
@@ -54,7 +58,7 @@ resource "aws_iam_role_policy" "iam_role_policy_for_cleanup_state_machine" {
 
 # SFN State Machine
 resource "aws_sfn_state_machine" "cleanup_state_machine" {
-  name     = "${var.project-name}-cleanup-state-machine"
+  name     = local.cleanup_sfn_name
   role_arn = aws_iam_role.iam_role_for_cleanup_state_machine.arn
   tags     = local.resource_tags
 
