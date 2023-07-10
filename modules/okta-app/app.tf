@@ -59,7 +59,8 @@ resource "okta_auth_server_claim" "groups" {
   auth_server_id    = okta_auth_server.quail.id
   name              = "groups"
   value_type        = "GROUPS"
-  value             = ".*"
+  # value             = ".*"
+  value = "((?!Everyone).)*"
   scopes            = ["${okta_auth_server_scope.groups.name}"]
   claim_type        = "IDENTITY"
   group_filter_type = "REGEX"
