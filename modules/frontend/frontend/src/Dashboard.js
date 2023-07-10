@@ -334,14 +334,33 @@ const Dashboard = () => {
   };
 
   const handleFieldChange = (event, fieldName) => {
-    const changes = {};
+    let changes = { [fieldName]: event.target.value };
+
+    if (fieldName === 'selectedAccount') {
+      const targetAccount = event.target.value;
+      const regions = Object.keys(state.regionMap[targetAccount]);
+      const selectedRegion = regions[0];
+      const operatingSystems = state.regionMap[targetAccount][selectedRegion];
+      changes = {
+        regions,
+        selectedRegion,
+        operatingSystems,
+        operatingSystem: operatingSystems[0],
+        ...changes,
+      };
+    }
+
     if (fieldName === 'selectedRegion') {
-      changes.operatingSystems = state.regionMap[state.selectedAccount][event.target.value];
+      const operatingSystems = state.regionMap[state.selectedAccount][event.target.value];
+      changes = {
+        operatingSystems,
+        operatingSystem: operatingSystems[0],
+        ...changes,
+      };
     }
 
     updateState({
       ...changes,
-      [fieldName]: event.target.value,
     });
     validateInstanceName(fieldName === 'instanceName' ? event.target.value : state.instanceName);
   };
