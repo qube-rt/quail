@@ -190,6 +190,10 @@ resource "aws_lambda_function" "public_api" {
       "LOG_LEVEL"                    = local.quail-api-log-level
       "SECRET_KEY"                   = random_password.public_api_secret_key.result
       "AWS_LWA_READINESS_CHECK_PATH" = "/healthcheck"
+      "FLASK_CORS_ORIGINS" = jsonencode(compact([
+        var.support-localhost-urls ? "http://localhost:3000/" : "",
+        "https://${var.hosting-domain}/",
+      ]))
     }
   }
 }

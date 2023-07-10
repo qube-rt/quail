@@ -190,12 +190,11 @@ module "backend" {
   external-sns-failure-topic-arn    = var.external-sns-failure-topic-arn
 
   # Auth vars
-  support-localhost-urls = var.support-localhost-urls
-  hosting-domain         = var.hosting-domain
-  hosted-zone-name       = var.hosted-zone-name
-  jwt-issuer             = module.okta-app.auth_server_issuer
-  jwt-audience           = [module.okta-app.oauth_app_client_id]
-  admin-group-name       = local.admin-group-name
+  hosting-domain   = var.hosting-domain
+  hosted-zone-name = var.hosted-zone-name
+  jwt-issuer       = module.okta-app.auth_server_issuer
+  jwt-audience     = [module.okta-app.oauth_app_client_id]
+  admin-group-name = local.admin-group-name
 
   # Tag config
   instance-tags = var.instance-tags
@@ -206,6 +205,7 @@ module "backend" {
   permission-data = local.permission-data
 
   # Other
+  support-localhost-urls        = var.support-localhost-urls
   cfn_data_bucket               = aws_s3_bucket.cfn_data_bucket.bucket
   cross-account-role-name       = local.cross-account-role-name
   stack-set-execution-role-name = local.stack-set-execution-role-name
@@ -243,7 +243,7 @@ module "frontend-ecs-hosting" {
   resource-tags = var.resource-tags
 
   # Hosting config
-  ecr-repository-url = module.frontend.ecr-repository-url
+  frontend-image-uri = module.frontend.ecr-image-uri
   ecr-container-name = module.frontend.ecr-image-name
   hosting-domain     = var.hosting-domain
   hosted-zone-name   = var.hosted-zone-name
@@ -339,8 +339,10 @@ module "utilities-regional-second-account-main-region" {
 module "okta-app" {
   source = "../modules/okta-app"
 
-  project-name = var.project-name
-  okta-groups  = module.okta-data.okta-groups
+  project-name           = var.project-name
+  okta-groups            = module.okta-data.okta-groups
+  support-localhost-urls = var.support-localhost-urls
+  hosting-domain         = var.hosting-domain
 }
 
 module "okta-data" {

@@ -121,7 +121,7 @@ resource "aws_ecs_task_definition" "nginx" {
   container_definitions = jsonencode([
     {
       "name" : "${var.project-name}-nginx",
-      "image" : var.ecr-repository-url,
+      "image" : var.frontend-image-uri,
       "essential" : true,
       "portMappings" : [
         {

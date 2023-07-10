@@ -20,7 +20,7 @@ variable "resource-tags" {
 }
 
 # ECS service configuration variables
-variable "ecr-repository-url" {
+variable "frontend-image-uri" {
   type        = string
   description = "The name of the ECR image serving the application's UI."
 }

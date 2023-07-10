@@ -14,7 +14,7 @@ resource "local_file" "react_env" {
   content  = local.react_config
 }
 
-resource "aws_ecr_repository" "hosting_repository" {
+resource "aws_ecr_repository" "react_frontend" {
   name                 = local.ecr_image_name
   image_tag_mutability = "MUTABLE"
   tags                 = local.resource_tags
@@ -27,7 +27,7 @@ resource "docker_image" "nginx" {
   build {
     context    = path.module
     dockerfile = "nginx/Dockerfile"
-    tag        = [aws_ecr_repository.hosting_repository.repository_url]
+    tag        = [aws_ecr_repository.react_frontend.repository_url]
   }
 
   triggers = {
@@ -54,7 +54,7 @@ resource "null_resource" "nginx_image_publish" {
     command = <<-EOT
       aws ecr get-login-password --region eu-west-1 | \
         docker login --username AWS --password-stdin ${var.account-primary}.dkr.ecr.${var.region-primary}.amazonaws.com
-      docker push ${aws_ecr_repository.hosting_repository.repository_url}
+      docker push ${aws_ecr_repository.react_frontend.repository_url}
     EOT
   }
 
@@ -64,4 +64,11 @@ resource "null_resource" "nginx_image_publish" {
 
   # Must be run after the frontend resources have been built
   depends_on = [docker_image.nginx]
+}
+
+data "aws_ecr_image" "react_frontend" {
+  repository_name = local.ecr_image_name
+  image_tag       = "latest"
+
+  depends_on = [null_resource.nginx_image_publish]
 }
