@@ -1,6 +1,6 @@
-output "ecr-repository-url" {
-  description = "The url of the image in ECR."
-  value       = aws_ecr_repository.hosting_repository.repository_url
+output "ecr-image-uri" {
+  description = "The URI of ECR image responsible for hosting the client app."
+  value       = "${aws_ecr_repository.react_frontend.repository_url}@${data.aws_ecr_image.react_frontend.id}"
 }
 
 output "ecr-image-name" {

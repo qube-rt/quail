@@ -97,7 +97,6 @@ def register_hooks(app):
 
 def configure_cors(app):
     """Register Flask extensions."""
-    # CORS(app, resources={r"/*": {"origins": "*"}})
     CORS(app)
 
 

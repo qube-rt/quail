@@ -9,12 +9,14 @@ resource "okta_app_oauth" "quail" {
   token_endpoint_auth_method = "none"
   pkce_required              = true
 
-  post_logout_redirect_uris = [
-    "http://localhost:3000/",
-  ]
-  redirect_uris = [
-    "http://localhost:3000/login/callback",
-  ]
+  post_logout_redirect_uris = compact([
+    var.support-localhost-urls ? "http://localhost:3000/" : "",
+    "https://${var.hosting-domain}/",
+  ])
+  redirect_uris = compact([
+    var.support-localhost-urls ? "http://localhost:3000/login/callback" : "",
+    "https://${var.hosting-domain}/login/callback",
+  ])
 
   groups_claim {
     name        = "groups"
@@ -22,7 +24,6 @@ resource "okta_app_oauth" "quail" {
     filter_type = "REGEX"
     value       = ".*"
   }
-  # issuer_mode="DYNAMIC"
 }
 
 resource "okta_app_group_assignments" "quail" {
