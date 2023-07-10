@@ -193,10 +193,13 @@ const Dashboard = () => {
 
   const validateInstanceName = (instanceName) => {
     let errorMsg = null;
+    const validUrlRegex = /^([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])*$/i;
     if (!instanceName) {
       errorMsg = 'Name must not be empty.';
     } else if (instanceName.length >= 255) {
       errorMsg = 'Name must not be longer than 255 characters.';
+    } else if (!validUrlRegex.test(instanceName)) {
+      errorMsg = 'Name must only contain alphanumeric or dash characters.';
     }
 
     updateState(
