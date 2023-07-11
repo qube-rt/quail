@@ -16,6 +16,15 @@ resource "aws_s3_bucket" "cfn_data_bucket" {
 resource "aws_s3_bucket_acl" "cfn_data_bucket_acl" {
   bucket = aws_s3_bucket.cfn_data_bucket.id
   acl    = "private"
+  depends_on = [aws_s3_bucket_ownership_controls.cfn_data_bucket_acl_ownership]
+}
+
+# Resource to avoid error "AccessControlListNotSupported: The bucket does not allow ACLs"
+resource "aws_s3_bucket_ownership_controls" "cfn_data_bucket_acl_ownership" {
+  bucket = aws_s3_bucket.cfn_data_bucket.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
 }
 
 resource "aws_s3_bucket_policy" "allow_access_from_remote_accounts" {

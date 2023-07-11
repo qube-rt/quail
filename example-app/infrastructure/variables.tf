@@ -102,3 +102,25 @@ variable "okta-api-token" {
   type        = string
   description = "Okta API Token"
 }
+
+# From the backend-image module
+variable "public-api-image-uri" {
+  type = string
+  description = "ECR URI of the public API docker image."
+}
+
+variable "private-api-image-uri" {
+  type = string
+  description = "ECR URI of the private API docker image."
+}
+
+# From the frontend-image module
+variable "frontend-ecr-image-uri" {
+  type        = string
+  description = "The url of the image in ECR."
+}
+
+variable "frontend-ecr-image-name" {
+  type        = string
+  description = "The name of the ECR image serving the application's UI."
+}

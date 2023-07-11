@@ -32,7 +32,7 @@ resource "docker_image" "public_api" {
 resource "null_resource" "public_api_image_publish" {
   provisioner "local-exec" {
     command = <<-EOT
-      aws ecr get-login-password --region eu-west-1 | \
+      aws ecr get-login-password --region ${var.region-primary} | \
         docker login --username AWS --password-stdin ${var.account-primary}.dkr.ecr.${var.region-primary}.amazonaws.com
       docker push ${aws_ecr_repository.public_api.repository_url}
     EOT
@@ -44,4 +44,11 @@ resource "null_resource" "public_api_image_publish" {
 
   # Must be run after the docker image has been built
   depends_on = [docker_image.public_api]
+}
+
+data "aws_ecr_image" "public_api" {
+  repository_name = local.ecr_public_api_name
+  image_tag       = "latest"
+
+  depends_on = [null_resource.public_api_image_publish]
 }

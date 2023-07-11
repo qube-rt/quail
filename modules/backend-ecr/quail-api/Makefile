@@ -34,14 +34,3 @@ shell-root:
 .PHONY: test
 test:
 	docker-compose run --rm public-api-dev pytest
-
-.PHONY: publish-ecr
-publish-ecr: export INSTALL_PYTHON_VERSION=3.9
-publish-ecr: export AWS_ACCOUNT=442249827373
-publish-ecr: export AWS_REGION=eu-west-1
-publish-ecr:
-	docker build --build-arg INSTALL_PYTHON_VERSION --target production -t quail-public_api .
-	docker tag quail-public_api:latest ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/quail-public_api:latest
-	aws ecr get-login-password --region ${AWS_REGION} | \
-        docker login --username AWS --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com
-	docker push ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/quail-public_api:latest

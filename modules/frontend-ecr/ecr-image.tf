@@ -52,7 +52,7 @@ resource "docker_image" "nginx" {
 resource "null_resource" "nginx_image_publish" {
   provisioner "local-exec" {
     command = <<-EOT
-      aws ecr get-login-password --region eu-west-1 | \
+      aws ecr get-login-password --region ${var.region-primary} | \
         docker login --username AWS --password-stdin ${var.account-primary}.dkr.ecr.${var.region-primary}.amazonaws.com
       docker push ${aws_ecr_repository.react_frontend.repository_url}
     EOT
