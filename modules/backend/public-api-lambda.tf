@@ -139,13 +139,6 @@ resource "aws_iam_role_policy" "public_api" {
   role   = aws_iam_role.public_api.id
 }
 
-data "aws_ecr_image" "public_api" {
-  repository_name = local.ecr_public_api_name
-  image_tag       = "latest"
-
-  depends_on = [null_resource.public_api_image_publish]
-}
-
 resource "random_password" "public_api_secret_key" {
   length = 24
 }
@@ -158,9 +151,7 @@ resource "aws_lambda_function" "public_api" {
   tags          = local.resource_tags
 
   package_type = "Image"
-  image_uri    = "${aws_ecr_repository.public_api.repository_url}@${data.aws_ecr_image.public_api.id}"
-
-  depends_on = [docker_image.public_api, null_resource.public_api_image_publish]
+  image_uri    = var.public-api-image-uri
 
   environment {
     variables = {

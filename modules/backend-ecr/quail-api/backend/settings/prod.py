@@ -15,7 +15,7 @@ DEBUG = ENV == "development"
 SECRET_KEY = env.str("SECRET_KEY")
 SEND_FILE_MAX_AGE_DEFAULT = env.int("SEND_FILE_MAX_AGE_DEFAULT", default=3600)
 CACHE_TYPE = "simple"  # Can be "memcached", d"redis", etc.
-FLASK_CORS_ORIGINS = env.json("FLASK_CORS_ORIGINS", default=[])
+FLASK_CORS_ORIGINS = env.json("FLASK_CORS_ORIGINS", default="[]")
 
 # JWT settings
 JWT_ISSUER = env.str("JWT_ISSUER", default="quail")

@@ -1,4 +1,6 @@
 locals {
+  skip-resources-first-deployment = false
+
   cross-account-role-name       = "${var.project-name}-cross-account"
   admin-group-name              = "${var.project-name}-admins"
   stack-set-admin-role-name     = "${var.project-name}-AWSCloudFormationStackSetExecutionRole"
@@ -176,7 +178,9 @@ locals {
 }
 
 module "backend" {
-  source = "../modules/backend"
+  source = "../../modules/backend"
+
+  skip-resources-first-deployment = local.skip-resources-first-deployment
 
   # Project definition vars
   project-name    = var.project-name
@@ -204,6 +208,10 @@ module "backend" {
   regional-data   = local.regional-data
   permission-data = local.permission-data
 
+  # ECR image URIs
+  private-api-image-uri = var.private-api-image-uri
+  public-api-image-uri = var.public-api-image-uri
+
   # Other
   support-localhost-urls        = var.support-localhost-urls
   cfn_data_bucket               = aws_s3_bucket.cfn_data_bucket.bucket
@@ -212,27 +220,9 @@ module "backend" {
   remote-accounts               = [data.aws_caller_identity.second.account_id]
 }
 
-module "frontend" {
-  source = "../modules/frontend"
-
-  # Project definition vars
-  project-name    = var.project-name
-  region-primary  = var.region-primary
-  account-primary = data.aws_caller_identity.primary.account_id
-
-  # Tag config
-  resource-tags = var.resource-tags
-
-  # Application config
-  api-root-url = module.backend.api-root-url
-
-  # Okta Auth config
-  jwt-issuer    = module.okta-app.auth_server_issuer
-  jwt-client-id = module.okta-app.oauth_app_client_id
-}
-
 module "frontend-ecs-hosting" {
-  source = "../modules/frontend-ecs-hosting"
+  source = "../../modules/frontend-ecs-hosting"
+  count = local.skip-resources-first-deployment ? 0 : 1
 
   # Project definition vars
   project-name    = var.project-name
@@ -243,8 +233,8 @@ module "frontend-ecs-hosting" {
   resource-tags = var.resource-tags
 
   # Hosting config
-  frontend-image-uri = module.frontend.ecr-image-uri
-  ecr-container-name = module.frontend.ecr-image-name
+  frontend-image-uri = var.frontend-ecr-image-uri
+  ecr-container-name = var.frontend-ecr-image-name
   hosting-domain     = var.hosting-domain
   hosted-zone-name   = var.hosted-zone-name
 }
@@ -253,7 +243,7 @@ module "frontend-ecs-hosting" {
 # Infrastructure set up in the first account
 ############################################
 module "utilities-account-first" {
-  source = "../modules/utilities-account"
+  source = "../../modules/utilities-account"
 
   # Project definition vars
   project-name                  = var.project-name
@@ -271,7 +261,7 @@ module "utilities-account-first" {
 }
 
 module "utilities-regional-primary" {
-  source = "../modules/utilities-regional"
+  source = "../../modules/utilities-regional"
 
   # Project definition vars
   project-name = var.project-name
@@ -281,7 +271,7 @@ module "utilities-regional-primary" {
 }
 
 module "utilities-regional-secondary" {
-  source = "../modules/utilities-regional"
+  source = "../../modules/utilities-regional"
 
   providers = {
     aws = aws.secondary-region
@@ -298,7 +288,7 @@ module "utilities-regional-secondary" {
 # Infrastructure set up in the second account
 #############################################
 module "utilities-account-second" {
-  source = "../modules/utilities-account"
+  source = "../../modules/utilities-account"
 
   providers = {
     aws = aws.secondary-account-main-region
@@ -320,7 +310,7 @@ module "utilities-account-second" {
 }
 
 module "utilities-regional-second-account-main-region" {
-  source = "../modules/utilities-regional"
+  source = "../../modules/utilities-regional"
 
   providers = {
     aws = aws.secondary-account-main-region
@@ -337,7 +327,7 @@ module "utilities-regional-second-account-main-region" {
 # Identity provider
 ###################
 module "okta-app" {
-  source = "../modules/okta-app"
+  source = "../../modules/okta-app"
 
   project-name           = var.project-name
   okta-groups            = module.okta-data.okta-groups
@@ -346,7 +336,7 @@ module "okta-app" {
 }
 
 module "okta-data" {
-  source = "../modules/okta-data"
+  source = "../../modules/okta-data"
 
   project-name     = var.project-name
   admin-group-name = local.admin-group-name

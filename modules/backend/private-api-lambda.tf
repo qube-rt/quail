@@ -1,6 +1,12 @@
 # Using a data source to avoid dependency cycles
-data "aws_sfn_state_machine" "cleanup_state_machine" {
-  name = "${var.project-name}-cleanup-state-machine"
+data "aws_sfn_state_machine" "cleanup_sfn" {
+  count = var.skip-resources-first-deployment ? 0 : 1
+  name  = local.cleanup_sfn_name
+}
+
+data "aws_sfn_state_machine" "provision_sfn" {
+  count = var.skip-resources-first-deployment ? 0 : 1
+  name  = local.provision_sfn_name
 }
 
 # CloudWatch log group
@@ -144,23 +150,31 @@ data "aws_iam_policy_document" "private_api" {
   }
 
   # SFN-related permissions
-  statement {
-    effect = "Allow"
-    actions = [
-      "states:StartExecution",
-      "states:SendTaskSuccess",
-      "states:SendTaskFailure",
-    ]
-    resources = [data.aws_sfn_state_machine.cleanup_state_machine.arn]
+  dynamic "statement" {
+    for_each = data.aws_sfn_state_machine.cleanup_sfn
+
+    content {
+      effect = "Allow"
+      actions = [
+        "states:StartExecution",
+        "states:SendTaskSuccess",
+        "states:SendTaskFailure",
+      ]
+      resources = [data.aws_sfn_state_machine.cleanup_sfn[0].arn]
+    }
   }
 
-  statement {
-    effect = "Allow"
-    actions = [
-      "states:SendTaskSuccess",
-      "states:SendTaskFailure",
-    ]
-    resources = [aws_sfn_state_machine.provision_state_machine.arn]
+  dynamic "statement" {
+    for_each = data.aws_sfn_state_machine.cleanup_sfn
+
+    content {
+      effect = "Allow"
+      actions = [
+        "states:SendTaskSuccess",
+        "states:SendTaskFailure",
+      ]
+      resources = [data.aws_sfn_state_machine.cleanup_sfn[0].arn]
+    }
   }
 
   # SES Permissions
@@ -183,24 +197,9 @@ data "aws_iam_policy_document" "private_api" {
 }
 
 resource "aws_iam_role_policy" "private_api" {
-  name   = "${local.ecr_private_api_name}--lambda-policy"
+  name   = "${local.ecr_private_api_name}-lambda-policy"
   policy = data.aws_iam_policy_document.private_api.json
   role   = aws_iam_role.private_api.id
-}
-
-data "aws_ecr_image" "private_api" {
-  repository_name = local.ecr_private_api_name
-  image_tag       = "latest"
-
-  depends_on = [null_resource.private_api_image_publish]
-}
-
-data "aws_sfn_state_machine" "cleanup_sfn" {
-  name = local.cleanup_sfn_name
-}
-
-data "aws_sfn_state_machine" "provision_sfn" {
-  name = local.provision_sfn_name
 }
 
 resource "random_password" "private_api_secret_key" {
@@ -215,9 +214,7 @@ resource "aws_lambda_function" "private_api" {
   tags          = local.resource_tags
 
   package_type = "Image"
-  image_uri    = "${aws_ecr_repository.private_api.repository_url}@${data.aws_ecr_image.private_api.id}"
-
-  depends_on = [docker_image.private_api, null_resource.private_api_image_publish]
+  image_uri    = var.private-api-image-uri
 
   environment {
     variables = {
@@ -229,8 +226,14 @@ resource "aws_lambda_function" "private_api" {
       "DYNAMODB_REGIONAL_METADATA_TABLE_NAME" = aws_dynamodb_table.dynamodb-regional-metadata-table.name
 
       # Fetching the SFNs ARN indirectly to avoid dependency cycles
-      "PROVISION_SFN_ARN"       = data.aws_sfn_state_machine.provision_sfn.arn
-      "CLEANUP_SFN_ARN"         = data.aws_sfn_state_machine.cleanup_sfn.arn
+      "PROVISION_SFN_ARN" = (var.skip-resources-first-deployment ?
+        "Unset skip-resources-first-deployment to fix this." :
+        data.aws_sfn_state_machine.provision_sfn[0].arn
+      )
+      "CLEANUP_SFN_ARN" = (var.skip-resources-first-deployment ?
+        "Unset skip-resources-first-deployment to fix this." :
+        data.aws_sfn_state_machine.cleanup_sfn[0].arn
+      )
       "CROSS_ACCOUNT_ROLE_NAME" = var.cross-account-role-name
       "CFN_DATA_BUCKET"         = var.cfn_data_bucket
 

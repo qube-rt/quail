@@ -134,7 +134,7 @@ resource "aws_ecs_task_definition" "nginx" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.ecs_task.name
-          awslogs-region        = "eu-west-1"
+          awslogs-region        = var.region-primary
           awslogs-stream-prefix = "ecs"
         }
       }

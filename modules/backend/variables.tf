@@ -147,3 +147,21 @@ variable "jwt-audience" {
   type        = list(string)
   description = "Audiences to check the issued JWTs for."
 }
+
+variable "public-api-image-uri" {
+  type        = string
+  description = "ECR URI of the public API docker image."
+}
+
+variable "private-api-image-uri" {
+  type        = string
+  description = "ECR URI of the private API docker image."
+}
+
+variable "skip-resources-first-deployment" {
+  type        = bool
+  description = <<EOF
+    Due to circular dependencies, some resources need to be skipped during
+    the first deployment and recreated during the second deployment.
+  EOF
+}
