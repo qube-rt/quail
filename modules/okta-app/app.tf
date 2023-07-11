@@ -26,6 +26,12 @@ resource "okta_app_oauth" "quail" {
   }
 }
 
+resource "okta_trusted_origin" "quail" {
+  name   = "quail-deployment"
+  origin = "https://${var.hosting-domain}/"
+  scopes = ["CORS"]
+}
+
 resource "okta_app_group_assignments" "quail" {
   app_id = okta_app_oauth.quail.id
 

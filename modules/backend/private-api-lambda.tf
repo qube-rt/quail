@@ -173,7 +173,7 @@ data "aws_iam_policy_document" "private_api" {
         "states:SendTaskSuccess",
         "states:SendTaskFailure",
       ]
-      resources = [data.aws_sfn_state_machine.cleanup_sfn[0].arn]
+      resources = [data.aws_sfn_state_machine.provision_sfn[0].arn]
     }
   }
 
