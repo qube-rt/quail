@@ -4,7 +4,7 @@ locals {
 
 # CloudWatch log group
 resource "aws_cloudwatch_log_group" "cleanup_state_machine_log_group" {
-  name              = "/aws/states/${var.project-name}/${aws_sfn_state_machine.cleanup_state_machine.name}"
+  name              = "/aws/states/${var.project-name}/${local.cleanup_sfn_name}"
   retention_in_days = local.cloudwatch_log_retention
   tags              = local.resource_tags
 }
@@ -32,8 +32,7 @@ data "aws_iam_policy_document" "cleanup_state_machine_role_policy_document" {
       "logs:DescribeResourcePolicies",
       "logs:DescribeLogGroups"
     ]
-    resources = ["*"]
-    # resources = [aws_cloudwatch_log_group.cleanup_state_machine_log_group.arn]
+    resources = [aws_cloudwatch_log_group.cleanup_state_machine_log_group.arn]
   }
 
   # Lambda permissions
@@ -61,6 +60,12 @@ resource "aws_sfn_state_machine" "cleanup_state_machine" {
   name     = local.cleanup_sfn_name
   role_arn = aws_iam_role.iam_role_for_cleanup_state_machine.arn
   tags     = local.resource_tags
+
+  logging_configuration {
+    log_destination        = "${aws_cloudwatch_log_group.cleanup_state_machine_log_group.arn}:*"
+    include_execution_data = true
+    level                  = "ERROR"
+  }
 
   definition = jsonencode({
     "Comment" : "The StackSet cleanup workflow",

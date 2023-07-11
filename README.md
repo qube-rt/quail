@@ -17,7 +17,7 @@ A basic list of features supported includes:
   * Users have the ability to 'emergency-extend' the life of an instance
   * Maximum number of instances per user is configurable per-team
   * Multiple operating system support, with unique AMIs, Security Groups and IAM roles configured per-team
-  * Centralised authentication via Amazon Cognito
+  * Centralised authentication via Okta
   * Terraform based, modular deployment - to fit in with even the most esoteric of AWS environments!
 
 ## Screenshot
@@ -29,7 +29,7 @@ A basic list of features supported includes:
 Quail consists of a front end web application written in React, leveraging AWS
 API Gateway and Lambda functions to orchestrate CloudFormation Stacks and
 StackSets in order to provision temporary EC2 instances for logged-in users.
-Authentication is handled via Cognito (and so allows authentication via Social
+Authentication is handled via Okta (and so allows authentication via Social
 platforms as well as SAML, OpenIDConnect, etc.).
 
 Application configuration is stored in DynamoDB tables, which provides the
@@ -38,9 +38,9 @@ assigned. Quail uses the concept of 'teams' to differentiate configurations and
 available provisioning templates.
 
 When a user provisions a new instance, the relevant CloudFormation template is
-provisioned - the demo application currently only covers provisioning an EC2
+provisioned - the example application currently only covers provisioning an EC2
 instance, but these templates are free-form so you can add other resources
-should they be required. Refer to the [Demo App configuration](demo/main.tf)
+should they be required. Refer to the [Example App configuration](##example-app-deployment)
 for more information.
 
 ## Deployment
@@ -56,7 +56,7 @@ variable needs to be configured to use the desired email. You'll need to
 mode in order to be able to send emails to addresses outside of the
 SES verified email list.
 
-Terraform (>=0.12) is used to provision the resources for the project. If you're using 
+Terraform (>=1.3) is used to provision the resources for the project. If you're using a
 non-default aws cli user profile, provide the details to terraform with 
 `terraform init -backend-config="profile=<YOUR_PROFILE_NAME>"`
 
@@ -65,71 +65,52 @@ if you provide its arn in the `external-sns-failure-topic-arn` terraform variabl
 Otherwise, leaving the variable blank, will create a new topic. Lambda failures
 or provisioning failures will send notifications to the topic.
 
+[Okta](https://developer.okta.com/) is used for authentication. You can sign up for a
+developer account and you'll need to create an API key for terraform to use.
+
 For anything other than test deployments, you will likely want to fork this
-repository, and create your own variant of the `demo` application, to fit your
+repository, and create your own variant of the `example-app` application, to fit your
 environment.
 
 ## Repository Structure
 
 The application is split into multiple modules:
 
-* `backend` contains the API (Lambda, Step Functions and API Gateway) and the associated
-  authentication methods (Cognito)
-* `frontend` contains the user interface code, which is published to ECR in 
-  a nginx container
+* `backend-ecr` contains the backend source code, builds a docker image and pushed it to ECR
+* `backend` contains the API (Lambda, Step Functions and API Gateway)
+* `frontend-ecr` contains the frontend application, builds it in a multi-stage docker image
+  and publishes a nginx container to ECR
 * `frontend-ecs-hosting` configures the hosting configuration for serving the UI
   on ECS, and the associated ELB and Route53 config
-* `utilities-global` contains global helpers, e.g. IAM config that doesn't need to be managed
-  by the application
+* `utilities-account` contains per-account helpers, e.g. IAM config that doesn't need
+  to be managed by the application
 * `utilities-regional` contains regional helpers, e.g. VPC config for the instances, that 
   doesn't need to be managed by the application.
+* `okta-app` contains the configuration of an Okta Oauth application.
+* `okta-data` creates several uses and groups that can be used to test the app.
 
-A sample application using the modules is available in the `demo` folder.
+A sample application using the modules is available in the `example-app` folder.
 
-## AWS SSO Configuration with SAML
+## Example App Deployment
 
-Terraform does not support SSO SAML applications as a resource, as such those
-have to be configured manually through the console. Cognito does not offer a
-metadata file to include in the configuration, the file can be replaced with
-two attributes though: the ServiceProvider application Assertion Consumer
-Service (ACS) url and the SAML audience. The instructions on how to obtain them
-form the pool details can be found
-[here](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-pools-integrating-3rd-party-saml-providers.html).
-They're included below for easy reference:
- 
-* The ACS URL takes the form of `https://<yourDomainPrefix>.auth.<region>.amazoncognito.com/saml2/idpresponse`
-* The audience takes the format of `urn:amazon:cognito:sp:<yourUserPoolID>`
+The example app has been set up to decouple application deployment from infrastructure/
+configuration deployment. It consits of three modules - `backend-images`,
+`frontend-image` and `infrastructure`.
 
-Cognito [does not support IdP-initiated SAML
-login](https://forums.aws.amazon.com/thread.jspa?threadID=269955), but this can
-be worked around by specifying the SSO SAML app's start url.  A url of the form
-`https://<cognito-domain>.auth.<region>.amazoncognito.com/oauth2/authorize?identity_provider=<cognito
-saml identity provider>&redirect_uri=<redirect
-uri>/&response_type=TOKEN&client_id=<client id>&scope=openid` will redirect the
-user directly to the identity provider login page, and if the user is
-authenticated, redirect them back to the `redirect_uri`, replicating the
-behaviour of an IdP-initiated login, despite being an SP-initated login.
+Due to dependencies between the componenets, the following steps should be followed
+in order to complete the initial deployment.
 
-To complete the configuration on SSO side an attribute mapping of `Subject` to
-`${user:subject}` needs to be added. Following that the `sso-app-metadata-url`
-terraform variable should be updated to use metadata url provided by the SSO
-SAML application.
-
-Users/groups have to be granted access to the SAML applications via the SSO
-console as well.
+1. Deploy the resources from the `backend-image` directory.
+1. Use the outputs from the `backend-image` deployment as input to `infrastructure`
+1. Set `skip-resources-first-deployment` to `true` in the `infrastructure` config.
+1. Deploy the `infrastructure` dir.
+1. Use the outputs from the `infrastructure` deployment as input to `frontend-image`
+1. Deploy the `frontend-image` directory.
+1. Use the outputs from the `frontend-image` deployment as input to `infrastructure`
+1. Set `skip-resources-first-deployment` to `false` in the `infrastructure` config.
+1. Deploy the infrastructure directory again.
 
 ## Limitations
-
-##### Step Functions logging
-
-In 02.2020, CloudWatch log support 
-[has been added](https://aws.amazon.com/about-aws/whats-new/2020/02/aws-step-functions-supports-cloudwatch-logs-standard-workflows/) to Step Functions. Unfortunately, latest terraform version (0.13.5) does not support that functionality. Adding the support is a [requested feature](https://github.com/terraform-providers/terraform-provider-aws/issues/12192), 
-but work on it hasn't begun at the current time.
-
-The template do create a log group for the Step Function state machine, along 
-with granting the state machine the required permissions, however until the 
-above feature is implemented, the log group has to be associated with the step 
-machine manually.  
 
 ## Contributing
 
