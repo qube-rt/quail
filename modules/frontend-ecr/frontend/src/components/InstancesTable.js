@@ -32,6 +32,7 @@ import DebouncedButton from './DebouncedButton';
 import SelectField from './SelectField';
 import { getLabel, formatDate, getUserData } from '../utils';
 import labels from '../labels';
+import Config from '../config';
 
 const useStyles = makeStyles((theme) => ({
   table: {
@@ -172,7 +173,9 @@ export default function InstancesTable(props) {
                     </TableCell>
                   </>
                 ) : <></> }
-                <TableCell className={classes.tableCell}>{instance.account_id}</TableCell>
+                <TableCell className={classes.tableCell}>
+                  {Config.accountLabels[instance.account_id] || instance.account_id}
+                </TableCell>
                 <TableCell className={classes.tableCell}>
                   { getLabel('regions', instance.region) }
                 </TableCell>
