@@ -7,6 +7,7 @@ const CLIENT_ID = process.env.REACT_APP_JWT_CLIENT_ID;
 const ISSUER = process.env.REACT_APP_JWT_ISSUER;
 const OKTA_TESTING_DISABLEHTTPSCHECK = window.location.origin.includes('localhost');
 const REDIRECT_URI = `${window.location.origin}/login/callback`;
+const ACCOUNT_LABELS = JSON.parse(process.env.REACT_APP_ACCOUNT_LABELS || '{}');
 
 const Config = {
   domain,
@@ -21,6 +22,7 @@ const Config = {
     pkce: true,
     disableHttpsCheck: OKTA_TESTING_DISABLEHTTPSCHECK,
   },
+  accountLabels: ACCOUNT_LABELS,
 };
 
 export default Config;

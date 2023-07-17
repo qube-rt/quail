@@ -22,6 +22,12 @@ variable "resource-tags" {
   description = "Tags to assign to resources provisioned by terraform. Apart from the listed tags, a {part_of: $${project-name}} tag is assigned to all resources."
 }
 
+variable "account-name-labels" {
+  type        = map(string)
+  default     = {}
+  description = "Mapping of AWS account IDs to user friendly names."
+}
+
 variable "api-root-url" {
   type        = string
   description = "Base URL of the public API"

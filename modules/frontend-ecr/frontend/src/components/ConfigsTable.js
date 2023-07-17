@@ -7,6 +7,7 @@ import {
 } from '@mui/material';
 
 import { formatDate, getLabel } from '../utils';
+import Config from '../config';
 
 const useStyles = makeStyles((theme) => ({
   table: {
@@ -48,7 +49,9 @@ export default function ConfigsTable(props) {
               className={classes.tableRow}
               onClick={(e) => onRestoreClick(e, config)}
             >
-              <TableCell className={classes.tableCell}>{config.account}</TableCell>
+              <TableCell className={classes.tableCell}>
+                {Config.accountLabels[config.account] || config.account}
+              </TableCell>
               <TableCell className={classes.tableCell}>
                 { getLabel('regions', config.region) }
               </TableCell>

@@ -12,6 +12,7 @@ import { Alert } from '@mui/lab';
 import SelectField from './SelectField';
 import DebouncedButton from './DebouncedButton';
 import labels from '../labels';
+import Config from '../config';
 
 const useStyles = makeStyles((theme) => ({
   formControl: {
@@ -114,6 +115,7 @@ const InstanceForm = (props) => {
               onFieldChange={onFieldChange}
               disabled={formDisabled}
               classes={classes}
+              valueLabels={Config.accountLabels}
             />
           </Grid>
 

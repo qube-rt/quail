@@ -34,3 +34,9 @@ variable "jwt-client-id" {
   type        = string
   description = "ID of the OAuth client App."
 }
+
+variable "account-name-labels" {
+  type        = map(string)
+  default     = {}
+  description = "Mapping of AWS account IDs to user friendly names."
+}
