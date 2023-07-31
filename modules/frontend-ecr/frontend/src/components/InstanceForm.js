@@ -13,6 +13,7 @@ import SelectField from './SelectField';
 import DebouncedButton from './DebouncedButton';
 import labels from '../labels';
 import Config from '../config';
+import { formatDate } from '../utils';
 
 const useStyles = makeStyles((theme) => ({
   formControl: {
@@ -171,6 +172,7 @@ const InstanceForm = (props) => {
                 value={expiry}
                 onChange={(e) => onDateChange(e.toDate(), 'expiry')}
                 disabled={formDisabled}
+                rifmFormatter={(unformatted) => formatDate(new Date(unformatted))}
                 renderInput={(params) => (
                   <TextField
                     // eslint-disable-next-line react/jsx-props-no-spreading
