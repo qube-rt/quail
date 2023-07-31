@@ -435,6 +435,8 @@ class AwsUtils:
             UsePreviousTemplate=True,
             Parameters=params,
             Capabilities=current_capabilities,
+            AdministrationRoleARN=self.admin_role_arn,
+            ExecutionRoleName=self.execution_role_name,
         )
 
     def stop_instance(self, account_id, region_name, instance_id):
