@@ -10,7 +10,9 @@ function getConfigurations() {
 }
 
 function formatDate(date) {
-  return new Date(date).toLocaleString();
+  return new Date(date).toLocaleTimeString(navigator.languages, {
+    year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
 }
 
 function getLabel(type, key) {

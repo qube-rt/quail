@@ -173,7 +173,7 @@ const Dashboard = () => {
     updateState({
       currentInstances: [
         {
-          ...pick(params, ['selectedRegion', 'selectedAccount', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
+          ...pick(params, ['stackset_id', 'selectedRegion', 'selectedAccount', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
           operatingSystemName: params.operatingSystem,
         },
         ...state.currentInstances,
@@ -227,7 +227,7 @@ const Dashboard = () => {
     validateInstanceName(state.instanceName),
   ];
 
-  const handleDeleteClick = async (event, instance) => {
+  const handleDeleteClick = async (instance) => {
     updateState({
       currentInstances: state.currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
@@ -245,7 +245,7 @@ const Dashboard = () => {
     });
   };
 
-  const handleExtendClick = async (event, instance) => {
+  const handleExtendClick = async (instance) => {
     updateState({
       currentInstances: state.currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
@@ -260,7 +260,12 @@ const Dashboard = () => {
       updateState({
         currentInstances: state.currentInstances.map(
           (item) => (item.stackset_id === instance.stackset_id
-            ? { ...item, expiry: response.data.expiry, can_extend: response.data.can_extend }
+            ? {
+              ...item,
+              expiry: response.data.expiry,
+              can_extend: response.data.can_extend,
+              handlingExtend: true,
+            }
             : item
           ),
         ),
@@ -276,7 +281,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleStartClick = async (event, instance) => {
+  const handleStartClick = async (instance) => {
     updateState({
       currentInstances: state.currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
@@ -291,7 +296,7 @@ const Dashboard = () => {
       updateState({
         currentInstances: state.currentInstances.map(
           (item) => (item.stackset_id === instance.stackset_id
-            ? { ...item, state: 'pending' } : item),
+            ? { ...item, state: 'pending', handlingStart: true } : item),
         ),
       });
       checkForInstanceUpdates();
@@ -306,7 +311,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleStopClick = async (event, instance) => {
+  const handleStopClick = async (instance) => {
     updateState({
       currentInstances: state.currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
@@ -321,7 +326,7 @@ const Dashboard = () => {
       updateState({
         currentInstances: state.currentInstances.map(
           (item) => (item.stackset_id === instance.stackset_id
-            ? { ...item, state: 'stopping' } : item),
+            ? { ...item, state: 'stopping', handlingStop: true } : item),
         ),
       });
       checkForInstanceUpdates();
@@ -375,7 +380,7 @@ const Dashboard = () => {
     validateExpiry(value);
   };
 
-  const handleRestoreClick = (event, request) => {
+  const handleRestoreClick = (request) => {
     const pastRequest = {
       selectedAccount: request.account,
       selectedRegion: request.region,
@@ -401,7 +406,7 @@ const Dashboard = () => {
       updateState({
         currentInstances: state.currentInstances.map(
           (item) => (item.stackset_id === instance.stackset_id
-            ? { ...item, instanceType } : item),
+            ? { ...item, instanceType, state: 'updating' } : item),
         ),
       });
       checkForInstanceUpdates();
@@ -433,7 +438,12 @@ const Dashboard = () => {
       const response = await appApi.createInstance(params);
 
       addPendingInstance(
-        { email: response.data.email, username: response.data.username, ...params },
+        {
+          stackset_id: Date.now(),
+          email: response.data.email,
+          username: response.data.username,
+          ...params,
+        },
       );
       resetForm();
       enqueueSnackbar('Instance provisioning started.', { variant: 'success' });

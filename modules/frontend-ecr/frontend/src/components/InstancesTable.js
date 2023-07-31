@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 
-import { makeStyles } from '@mui/styles';
 import {
   Delete as DeleteIcon,
   PauseCircleOutline as PauseCircleOutlineIcon,
@@ -11,12 +10,7 @@ import {
 import {
   Button,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
   TableContainer,
-  TableHead,
-  TableRow,
   LinearProgress,
   CircularProgress,
   Tooltip,
@@ -26,38 +20,36 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
+import { DataGrid, GridActionsCellItem, GridToolbar } from '@mui/x-data-grid';
 import { enqueueSnackbar } from 'notistack';
 
-import DebouncedButton from './DebouncedButton';
+import { debounce } from 'lodash';
 import SelectField from './SelectField';
 import { getLabel, formatDate, getUserData } from '../utils';
 import labels from '../labels';
 import Config from '../config';
 
-const useStyles = makeStyles((theme) => ({
-  table: {
-    minWidth: 650,
-  },
-  tableHeaderCell: {
-    backgroundColor: theme.palette.grey[400],
-    color: theme.palette.common.black,
-  },
-  tableRow: {
-    '&:nth-of-type(odd)': {
-      backgroundColor: theme.palette.action.hover,
-    },
-  },
-  buttonWrapper: {
-    display: 'flex',
-    alignItems: 'center',
-  },
-  button: {
-    margin: theme.spacing(0.25),
-  },
-}));
+const GridActionsCellItemWrapper = (params) => {
+  const {
+    icon, label, color, onClick, disabled,
+  } = params;
+
+  const debouncedHandler = useCallback(
+    debounce(onClick, 500, { leading: true }), [],
+  );
+
+  return (
+    <GridActionsCellItem
+      icon={<Tooltip title={label}>{icon}</Tooltip>}
+      label={label}
+      color={color}
+      disabled={disabled}
+      onClick={debouncedHandler}
+    />
+  );
+};
 
 export default function InstancesTable(props) {
-  const classes = useStyles();
   const {
     is_superuser, instances, instanceTypes, onDeleteClick,
     onExtendClick, onStartClick, onStopClick, onInstanceUpdateClick,
@@ -96,8 +88,8 @@ export default function InstancesTable(props) {
     }
   };
 
-  const [open, setOpen] = React.useState(false);
-  const [dialogData, setDialogData] = React.useState({ instance: null, instanceType: '' });
+  const [open, setOpen] = useState(false);
+  const [dialogData, setDialogData] = useState({ instance: null, instanceType: '' });
 
   const handleClickOpen = (instance, instanceType) => {
     setDialogData({ instance, instanceType });
@@ -113,6 +105,88 @@ export default function InstancesTable(props) {
     onInstanceUpdateClick(dialogData.instance, dialogData.instanceType);
     handleClose();
   };
+
+  const columns = [
+    ...(is_superuser ? [{ field: 'username', headerName: 'Owner' }] : []),
+    {
+      field: 'account_id',
+      headerName: 'Account',
+      valueFormatter: ({ value: account_id }) => Config.accountLabels[account_id] || account_id,
+    },
+    {
+      field: 'region', headerName: 'Region', minWidth: 150, valueFormatter: ({ value: region }) => getLabel('regions', region),
+    },
+    {
+      field: 'instanceType',
+      headerName: 'Instance Type',
+      minWidth: 250,
+      flex: 1,
+      renderCell: ({ row: instance, value }) => (
+        <SelectField
+          fieldName="instanceType"
+          values={instanceTypes}
+          valueLabels={labels.instanceTypes}
+          selected={value}
+          disabled={instance.state !== 'running' && instance.state !== 'stopped'}
+          onFieldChange={(event) => handleClickOpen(instance, event.target.value)}
+        />
+      ),
+    },
+    { field: 'operatingSystemName', headerName: 'Operating System', width: 150 },
+    { field: 'private_ip', headerName: 'IP' },
+    { field: 'instanceName', headerName: 'Name' },
+    {
+      field: 'state', headerName: 'Status', renderCell: ({ value }) => (['stopped', 'running'].includes(value) ? value : <CircularProgress />),
+    },
+    {
+      field: 'expiry', headerName: 'Expires At', minWidth: 150, valueFormatter: ({ value: expiry }) => formatDate(expiry),
+    },
+    {
+      field: 'actions',
+      type: 'actions',
+      minWidth: 160,
+      flex: 0.6,
+      getActions: ({ row }) => [
+        ...(row.state === 'running' ? [
+          <GridActionsCellItemWrapper
+            icon={<CloudUploadIcon />}
+            label="Connect"
+            color="primary"
+            onClick={() => handleConnectClick(row)}
+          />,
+          <GridActionsCellItemWrapper
+            icon={<PauseCircleOutlineIcon />}
+            label="Stop"
+            color="primary"
+            disabled={!!row.handlingStop}
+            onClick={() => onStopClick(row)}
+          />] : []),
+        ...(row.state === 'stopped' ? [
+          <GridActionsCellItemWrapper
+            icon={<PlayCircleOutlineIcon />}
+            label="Start"
+            color="info"
+            disabled={!!row.handlingStart}
+            onClick={() => onStartClick(row)}
+          />] : []),
+        ...(['stopped', 'running'].includes(row.state) ? [
+          <GridActionsCellItemWrapper
+            icon={<SnoozeIcon />}
+            label="Extend"
+            color="info"
+            disabled={!row.can_extend || !!row.handlingExtend}
+            onClick={() => onExtendClick(row)}
+          />,
+          <GridActionsCellItemWrapper
+            icon={<DeleteIcon />}
+            label="Delete"
+            color="error"
+            disabled={!!row.handlingDelete}
+            onClick={() => onDeleteClick(row)}
+          />] : []),
+      ],
+    },
+  ];
 
   return (
     <>
@@ -139,134 +213,32 @@ export default function InstancesTable(props) {
       </Dialog>
 
       <TableContainer component={Paper}>
-        <Table className={classes.table} size="small">
-          <TableHead>
-            <TableRow>
-              { is_superuser ? (
-                <>
-                  <TableCell className={classes.tableHeaderCell}>Owner</TableCell>
-                </>
-              ) : <></> }
-              <TableCell className={classes.tableHeaderCell}>Account</TableCell>
-              <TableCell className={classes.tableHeaderCell}>Region</TableCell>
-              <TableCell className={classes.tableHeaderCell}>Instance Type</TableCell>
-              <TableCell className={classes.tableHeaderCell}>Operating System</TableCell>
-              <TableCell className={classes.tableHeaderCell}>IP</TableCell>
-              <TableCell className={classes.tableHeaderCell}>Name</TableCell>
-              <TableCell className={classes.tableHeaderCell}>Status</TableCell>
-              <TableCell className={classes.tableHeaderCell}>Expires at</TableCell>
-              <TableCell className={classes.tableHeaderCell} />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {isLoading ? <></> : instances.map((instance, index) => (
-              <TableRow className={classes.tableRow} key={index}>
-                { is_superuser ? (
-                  <>
-                    <TableCell className={classes.tableCell}>
-                      <Tooltip
-                        title={instance.email}
-                        PopperProps={{ keepMounted: true }}
-                      >
-                        <div>{instance.username}</div>
-                      </Tooltip>
-                    </TableCell>
-                  </>
-                ) : <></> }
-                <TableCell className={classes.tableCell}>
-                  {Config.accountLabels[instance.account_id] || instance.account_id}
-                </TableCell>
-                <TableCell className={classes.tableCell}>
-                  { getLabel('regions', instance.region) }
-                </TableCell>
-                <TableCell className={classes.tableCell}>
-                  <SelectField
-                    fieldName="instanceType"
-                    values={instanceTypes}
-                    valueLabels={labels.instanceTypes}
-                    selected={instance.instanceType}
-                    disabled={instance.state !== 'running' && instance.state !== 'stopped'}
-                    onFieldChange={(event) => handleClickOpen(instance, event.target.value)}
-                  />
-                </TableCell>
-                <TableCell className={classes.tableCell}>{instance.operatingSystemName}</TableCell>
-                <TableCell className={classes.tableCell}>{instance.private_ip}</TableCell>
-                <TableCell className={classes.tableCell}>{instance.instanceName}</TableCell>
-                <TableCell className={classes.tableCell}>
-                  {
-                  instance.state === 'stopped' || instance.state === 'running'
-                    ? instance.state : <CircularProgress />
-                }
-                </TableCell>
-                <TableCell className={classes.tableCell}>{formatDate(instance.expiry)}</TableCell>
-                <TableCell className={classes.tableCell}>
-                  <div className={classes.buttonWrapper}>
-                    { instance.state === 'running' ? (
-                      <>
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          className={classes.button}
-                          startIcon={<CloudUploadIcon />}
-                          onClick={() => handleConnectClick(instance)}
-                        >
-                          Connect
-                        </Button>
-                        <DebouncedButton
-                          variant="contained"
-                          color="primary"
-                          engaged={!!instance.handlingStop}
-                          startIcon={<PauseCircleOutlineIcon />}
-                          onClick={(e) => onStopClick(e, instance)}
-                        >
-                          Stop
-                        </DebouncedButton>
-                      </>
-                    ) : ''}
-
-                    { instance.state === 'stopped' ? (
-                      <DebouncedButton
-                        variant="contained"
-                        color="secondary"
-                        engaged={!!instance.handlingStart}
-                        startIcon={<PlayCircleOutlineIcon />}
-                        onClick={(e) => onStartClick(e, instance)}
-                      >
-                        Start
-                      </DebouncedButton>
-                    ) : ''}
-
-                    { instance.state === 'stopped' || instance.state === 'running' ? (
-                      <>
-                        <DebouncedButton
-                          variant="contained"
-                          color="primary"
-                          engaged={!!instance.handlingExtend}
-                          disabled={!instance.can_extend}
-                          startIcon={<SnoozeIcon />}
-                          onClick={(e) => onExtendClick(e, instance)}
-                        >
-                          Extend
-                        </DebouncedButton>
-                        <DebouncedButton
-                          variant="contained"
-                          color="secondary"
-                          engaged={!!instance.handlingDelete}
-                          startIcon={<DeleteIcon />}
-                          onClick={(e) => onDeleteClick(e, instance)}
-                        >
-                          Delete
-                        </DebouncedButton>
-                      </>
-                    ) : ''}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataGrid
+          rows={instances || []}
+          columns={columns}
+          slots={{ toolbar: GridToolbar }}
+          getRowId={(instance) => instance.stackset_id}
+          rowModesModel={{}}
+          disableRowSelectionOnClick
+          disableColumnSelector
+          disableDensitySelector
+          // disableColumnFilter
+          slotProps={{
+            toolbar: {
+              csvOptions: { disableToolbarButton: true },
+              printOptions: { disableToolbarButton: true },
+              showQuickFilter: true,
+              quickFilterProps: { debounceMs: 500 },
+            },
+          }}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 10 } },
+          }}
+          pageSizeOptions={[10, 25, 50]}
+        />
         {isLoading ? <LinearProgress /> : '' }
       </TableContainer>
+
     </>
   );
 }

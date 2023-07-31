@@ -47,7 +47,7 @@ export default function ConfigsTable(props) {
             <TableRow
               key={index}
               className={classes.tableRow}
-              onClick={(e) => onRestoreClick(e, config)}
+              onClick={() => onRestoreClick(config)}
             >
               <TableCell className={classes.tableCell}>
                 {Config.accountLabels[config.account] || config.account}
@@ -65,7 +65,7 @@ export default function ConfigsTable(props) {
                   variant="contained"
                   color="primary"
                   className={classes.button}
-                  onClick={(e) => onRestoreClick(e, config)}
+                  onClick={() => onRestoreClick(config)}
                 >
                   <RestoreIcon fontSize="inherit" />
                 </IconButton>
