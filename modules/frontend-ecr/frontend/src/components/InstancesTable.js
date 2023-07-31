@@ -34,9 +34,7 @@ const GridActionsCellItemWrapper = (params) => {
     icon, label, color, onClick, disabled,
   } = params;
 
-  const debouncedHandler = useCallback(
-    debounce(onClick, 500, { leading: true }), [],
-  );
+  const debouncedHandler = debounce(onClick, 500, { leading: true });
 
   return (
     <GridActionsCellItem
