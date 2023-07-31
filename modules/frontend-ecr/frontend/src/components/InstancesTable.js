@@ -149,13 +149,13 @@ export default function InstancesTable(props) {
           <GridActionsCellItemWrapper
             icon={<CloudUploadIcon />}
             label="Connect"
-            color="primary"
+            color="info"
             onClick={() => handleConnectClick(row)}
           />,
           <GridActionsCellItemWrapper
             icon={<PauseCircleOutlineIcon />}
             label="Stop"
-            color="primary"
+            color="secondary"
             disabled={!!row.handlingStop}
             onClick={() => onStopClick(row)}
           />] : []),
@@ -163,7 +163,7 @@ export default function InstancesTable(props) {
           <GridActionsCellItemWrapper
             icon={<PlayCircleOutlineIcon />}
             label="Start"
-            color="info"
+            color="primary"
             disabled={!!row.handlingStart}
             onClick={() => onStartClick(row)}
           />] : []),
@@ -171,7 +171,7 @@ export default function InstancesTable(props) {
           <GridActionsCellItemWrapper
             icon={<SnoozeIcon />}
             label="Extend"
-            color="info"
+            color="primary"
             disabled={!row.can_extend || !!row.handlingExtend}
             onClick={() => onExtendClick(row)}
           />,
