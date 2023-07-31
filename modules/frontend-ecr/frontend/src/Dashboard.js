@@ -167,10 +167,10 @@ const Dashboard = () => {
   const addPendingInstance = (params) => {
     setCurrentInstances([
       {
-        ...pick(params, ['stackset_id', 'selectedRegion', 'selectedAccount', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
+        ...pick(params, ['stackset_id', 'region', 'account_id', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
         operatingSystemName: params.operatingSystem,
       },
-      currentInstances,
+      ...currentInstances,
     ].sort((a, b) => new Date(a.expiry) - new Date(b.expiry)));
   };
 
@@ -410,7 +410,6 @@ const Dashboard = () => {
           email: response.data.email,
           username: response.data.username,
           account_id: params.account,
-          region: state.selectedRegion,
           ...params,
         },
       );
