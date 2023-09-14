@@ -74,3 +74,13 @@ COPY --chown=quail:quail shell_scripts/local_start_private.sh local_start_privat
 RUN chmod +x local_start_private.sh
 
 CMD ["/app/local_start_private.sh"]
+
+# ======================== TEST API =============================
+FROM production AS test_public_api
+
+ENV FLASK_APP="public_app:app"
+
+COPY --chown=quail:quail setup.cfg setup.cfg
+COPY --chown=quail:quail tests tests
+
+RUN pip install --no-cache -r requirements/dev.txt

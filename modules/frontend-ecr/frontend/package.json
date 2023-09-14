@@ -10,6 +10,7 @@
     "@mui/lab": "^5.0.0-alpha.121",
     "@mui/material": "^5.11.11",
     "@mui/styles": "^5.11.11",
+    "@mui/x-data-grid": "^6.10.1",
     "@mui/x-date-pickers": "^5.0.20",
     "@okta/okta-auth-js": "^7.3.0",
     "@okta/okta-react": "^6.7.0",

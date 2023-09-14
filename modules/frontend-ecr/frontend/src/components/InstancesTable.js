@@ -26,6 +26,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
+import { DataGrid, GridRowsProp, GridColDef } from '@mui/x-data-grid';
 import { enqueueSnackbar } from 'notistack';
 
 import DebouncedButton from './DebouncedButton';

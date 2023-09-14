@@ -1,0 +1,24 @@
+version: "3.8"
+
+x-build-args: &build_args
+  INSTALL_PYTHON_VERSION: 3.9
+
+services:
+  test-api-dev:
+    build:
+      context: .
+      target: development_public_api
+      args:
+        <<: *build_args
+    container_name: test-api-dev
+    ports:
+      - 8080:8080
+    env_file:
+      - .envs/.local
+      - .envs/.aws.test
+    volumes:
+      - ./backend/:/app/backend
+      - ./setup.cfg/:/app/setup.cfg
+      - ./tests/:/app/tests
+    stdin_open: true
+    tty: true

@@ -33,4 +33,5 @@ shell-root:
 
 .PHONY: test
 test:
-	docker-compose run --rm public-api-dev pytest
+	docker-compose -f docker-compose.test.yml build test-api-dev
+	docker-compose -f docker-compose.test.yml run --rm test-api-dev pytest -s
