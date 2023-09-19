@@ -25,8 +25,7 @@ import { enqueueSnackbar } from 'notistack';
 
 import { debounce } from 'lodash';
 import SelectField from './SelectField';
-import { getLabel, formatDate, getUserData } from '../utils';
-import labels from '../labels';
+import { formatDate, getUserData } from '../utils';
 import Config from '../config';
 
 const GridActionsCellItemWrapper = (params) => {
@@ -112,7 +111,10 @@ export default function InstancesTable(props) {
       valueFormatter: ({ value: account_id }) => Config.accountLabels[account_id] || account_id,
     },
     {
-      field: 'region', headerName: 'Region', minWidth: 150, valueFormatter: ({ value: region }) => getLabel('regions', region),
+      field: 'region',
+      headerName: 'Region',
+      minWidth: 150,
+      valueFormatter: ({ value: region }) => Config.regionLabels[region] || region,
     },
     {
       field: 'instanceType',
@@ -123,7 +125,7 @@ export default function InstancesTable(props) {
         <SelectField
           fieldName="instanceType"
           values={instanceTypes}
-          valueLabels={labels.instanceTypes}
+          valueLabels={Config.instanceLabels}
           selected={value}
           disabled={instance.state !== 'running' && instance.state !== 'stopped'}
           onFieldChange={(event) => handleClickOpen(instance, event.target.value)}

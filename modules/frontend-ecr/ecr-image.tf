@@ -5,7 +5,10 @@ locals {
   REACT_APP_API_HOST=${var.api-root-url}
   REACT_APP_JWT_ISSUER=${var.jwt-issuer}
   REACT_APP_JWT_CLIENT_ID=${var.jwt-client-id}
+  REACT_APP_ADMIN_GROUP_NAME=${var.admin-group-name}
+  REACT_APP_REGION_LABELS=${jsonencode(var.region-name-labels)}
   REACT_APP_ACCOUNT_LABELS=${jsonencode(var.account-name-labels)}
+  REACT_APP_INSTANCE_LABELS=${jsonencode(var.instance-name-labels)}
   EOT
 }
 
