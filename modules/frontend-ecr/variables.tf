@@ -40,3 +40,9 @@ variable "account-name-labels" {
   default     = {}
   description = "Mapping of AWS account IDs to user friendly names."
 }
+
+variable "npm_registry_url" {
+  type        = string
+  default     = "https://registry.npmjs.org"
+  description = "URL for alternative NPM registry to obtain remote packages"
+}

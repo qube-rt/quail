@@ -4,6 +4,8 @@ FROM node:16 as build
 WORKDIR /app
 
 COPY frontend/package*.json /app/
+
+ARG NPM_CONFIG_REGISTRY="https://registry.npmjs.org"
 RUN npm install --package-lock=true --production=false
 
 COPY frontend/.* *.json /app/

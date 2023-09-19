@@ -28,7 +28,10 @@ resource "docker_image" "nginx" {
   build {
     context    = path.module
     dockerfile = "nginx/Dockerfile"
-    tag        = [aws_ecr_repository.react_frontend.repository_url]
+    build_args = {
+      NPM_CONFIG_REGISTRY = var.npm_registry_url
+    }
+    tag = [aws_ecr_repository.react_frontend.repository_url]
   }
 
   triggers = {
