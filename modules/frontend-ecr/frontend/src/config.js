@@ -5,10 +5,10 @@ const CLIENT_ID = process.env.REACT_APP_JWT_CLIENT_ID;
 const ISSUER = process.env.REACT_APP_JWT_ISSUER;
 const OKTA_TESTING_DISABLEHTTPSCHECK = window.location.origin.includes('localhost');
 const REDIRECT_URI = `${window.location.origin}/login/callback`;
-const REGION_LABELS = JSON.parse(process.env.REACT_APP_REGION_LABELS || '{}');
-const ACCOUNT_LABELS = JSON.parse(process.env.REACT_APP_ACCOUNT_LABELS || '{}');
-const INSTANCE_LABELS = JSON.parse(process.env.REACT_APP_INSTANCE_LABELS || '{}');
-const ADMIN_GROUP_NAME = process.env.REACT_APP_ADMIN_GROUP_NAME || 'quail-admins';
+const REGION_LABELS = JSON.parse(process.env.REACT_APP_REGION_LABELS);
+const ACCOUNT_LABELS = JSON.parse(process.env.REACT_APP_ACCOUNT_LABELS);
+const INSTANCE_LABELS = JSON.parse(process.env.REACT_APP_INSTANCE_LABELS);
+const ADMIN_GROUP_NAME = process.env.REACT_APP_ADMIN_GROUP_NAME;
 
 const Config = {
   domain,
