@@ -25,7 +25,7 @@ import { enqueueSnackbar } from 'notistack';
 
 import { debounce } from 'lodash';
 import SelectField from './SelectField';
-import { formatDate, getUserData } from '../utils';
+import { formatDate, getLabel, getUserData } from '../utils';
 import Config from '../config';
 
 const GridActionsCellItemWrapper = (params) => {
@@ -108,13 +108,13 @@ export default function InstancesTable(props) {
     {
       field: 'account_id',
       headerName: 'Account',
-      valueFormatter: ({ value: account_id }) => Config.accountLabels[account_id] || account_id,
+      valueFormatter: ({ value: account_id }) => getLabel('accountLabels', account_id),
     },
     {
       field: 'region',
       headerName: 'Region',
       minWidth: 150,
-      valueFormatter: ({ value: region }) => Config.regionLabels[region] || region,
+      valueFormatter: ({ value: region }) => getLabel('regionLabels', region),
     },
     {
       field: 'instanceType',

@@ -50,7 +50,7 @@ export default function ConfigsTable(props) {
               onClick={() => onRestoreClick(config)}
             >
               <TableCell className={classes.tableCell}>
-                {Config.accountLabels[config.account] || config.account}
+                { getLabel('accountLabels', config.account) }
               </TableCell>
               <TableCell className={classes.tableCell}>
                 { getLabel('regionLabels', config.region) }
