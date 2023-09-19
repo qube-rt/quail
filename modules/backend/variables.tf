@@ -69,6 +69,7 @@ variable "cross-account-role-name" {
 variable "remote-accounts" {
   type        = list(string)
   description = "List of account IDs where users can provision instances (excl. the main account)."
+  default     = []
 }
 
 variable "stack-set-execution-role-name" {
