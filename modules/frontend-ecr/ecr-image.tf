@@ -37,7 +37,7 @@ resource "docker_image" "nginx" {
       join("", [for f in concat(
         tolist(fileset(".", "${path.module}/frontend/src/**")),
         tolist(fileset(".", "${path.module}/frontend/public/**")),
-        tolist(fileset(".", "${path.module}/frontend/public/.env")),
+        tolist(fileset(".", "${path.module}/frontend/.env")),
         [
           "${path.module}/frontend/package.json",
           "${path.module}/frontend/package-lock.json"
