@@ -14,6 +14,11 @@ RUN addgroup --system quail \
     && adduser --system --ingroup quail quail
 RUN chown quail:quail /app
 
+# set optional environment variables for proxy
+ARG http_proxy=""
+ARG https_proxy=""
+ARG no_proxy=""
+
 # Install system-level packages
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -21,6 +26,7 @@ RUN apt-get update && \
       python3-dev
 
 # Update pip
+ARG PIP_INDEX_URL="https://pypi.python.org/simple"
 RUN pip install --upgrade pip
 
 # Install production level requirements

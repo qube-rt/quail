@@ -14,6 +14,10 @@ resource "docker_image" "private_api" {
     target     = "production_private_api"
     build_args = {
       INSTALL_PYTHON_VERSION = 3.9
+      PIP_INDEX_URL          = var.pip_index_url
+      http_proxy             = var.http_proxy
+      https_proxy            = var.https_proxy
+      no_proxy               = var.no_proxy
     }
     tag = [aws_ecr_repository.private_api.repository_url]
   }

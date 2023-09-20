@@ -113,7 +113,7 @@ def post_notify_failure():
     stackset_email = payload["stackset_email"]
 
     # send SNS failure notification
-    current_app.aws.send_sns_message(stackset_id=stackset_id)
+    current_app.aws.send_error_sns_message(stackset_id=stackset_id)
 
     for instance_data in current_app.aws.fetch_stackset_instances(stackset_id=stackset_id, acceptable_statuses=None):
         template_data = {

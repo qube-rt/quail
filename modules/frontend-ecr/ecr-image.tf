@@ -5,7 +5,10 @@ locals {
   REACT_APP_API_HOST=${var.api-root-url}
   REACT_APP_JWT_ISSUER=${var.jwt-issuer}
   REACT_APP_JWT_CLIENT_ID=${var.jwt-client-id}
+  REACT_APP_ADMIN_GROUP_NAME=${var.admin-group-name}
+  REACT_APP_REGION_LABELS=${jsonencode(var.region-name-labels)}
   REACT_APP_ACCOUNT_LABELS=${jsonencode(var.account-name-labels)}
+  REACT_APP_INSTANCE_LABELS=${jsonencode(var.instance-name-labels)}
   EOT
 }
 
@@ -28,7 +31,10 @@ resource "docker_image" "nginx" {
   build {
     context    = path.module
     dockerfile = "nginx/Dockerfile"
-    tag        = [aws_ecr_repository.react_frontend.repository_url]
+    build_args = {
+      NPM_CONFIG_REGISTRY = var.npm_registry_url
+    }
+    tag = [aws_ecr_repository.react_frontend.repository_url]
   }
 
   triggers = {
@@ -37,7 +43,7 @@ resource "docker_image" "nginx" {
       join("", [for f in concat(
         tolist(fileset(".", "${path.module}/frontend/src/**")),
         tolist(fileset(".", "${path.module}/frontend/public/**")),
-        tolist(fileset(".", "${path.module}/frontend/public/.env")),
+        tolist(fileset(".", "${path.module}/frontend/.env")),
         [
           "${path.module}/frontend/package.json",
           "${path.module}/frontend/package-lock.json"

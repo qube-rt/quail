@@ -11,7 +11,6 @@ import { Alert } from '@mui/lab';
 
 import SelectField from './SelectField';
 import DebouncedButton from './DebouncedButton';
-import labels from '../labels';
 import Config from '../config';
 import { formatDate } from '../utils';
 
@@ -125,7 +124,7 @@ const InstanceForm = (props) => {
               label="Region"
               fieldName="selectedRegion"
               values={regions}
-              valueLabels={labels.regions}
+              valueLabels={Config.regionLabels}
               selected={selectedRegion}
               onFieldChange={onFieldChange}
               disabled={formDisabled}
@@ -138,7 +137,7 @@ const InstanceForm = (props) => {
               label="Instance Type"
               fieldName="instanceType"
               values={instanceTypes}
-              valueLabels={labels.instanceTypes}
+              valueLabels={Config.instanceLabels}
               selected={selectedInstanceType}
               disabled={formDisabled}
               onFieldChange={onFieldChange}
