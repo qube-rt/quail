@@ -1,9 +1,8 @@
 from uuid import uuid4
 import json
 import logging
-from collections import defaultdict
-from datetime import datetime
 import random
+from collections import defaultdict
 
 import boto3
 
@@ -150,7 +149,7 @@ class AwsUtils:
         result = [config for config in os_configs if config["name"] == os_name]
 
         if not result:
-            raise PermissionsMissing(message=f"Could not find the permission for '{os_name}' in groups: {groups}.")
+            raise PermissionsMissing(message=f"Could not find the permission for '{os_name}' for group: {group_name}.")
 
         return result[0]
 
