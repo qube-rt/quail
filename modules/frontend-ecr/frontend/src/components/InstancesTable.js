@@ -48,7 +48,7 @@ const GridActionsCellItemWrapper = (params) => {
 
 export default function InstancesTable(props) {
   const {
-    is_superuser, instances, instanceTypes, onDeleteClick,
+    is_superuser, instances, instanceTypesPerGroup, onDeleteClick,
     onExtendClick, onStartClick, onStopClick, onInstanceUpdateClick,
   } = props;
   const { username } = getUserData();
@@ -117,14 +117,20 @@ export default function InstancesTable(props) {
       valueFormatter: ({ value: region }) => getLabel('regionLabels', region),
     },
     {
+      field: 'group',
+      headerName: 'Group',
+      minWidth: 100,
+      valueFormatter: ({ value: group }) => getLabel('groupLabels', group),
+    },
+    {
       field: 'instanceType',
       headerName: 'Instance Type',
-      minWidth: 250,
+      minWidth: 220,
       flex: 1,
       renderCell: ({ row: instance, value }) => (
         <SelectField
           fieldName="instanceType"
-          values={instanceTypes}
+          values={instanceTypesPerGroup[instance.group].instanceTypes}
           valueLabels={Config.instanceLabels}
           selected={value}
           disabled={instance.state !== 'running' && instance.state !== 'stopped'}

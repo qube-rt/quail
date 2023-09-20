@@ -1,6 +1,4 @@
 locals {
-  skip-resources-first-deployment = false
-
   cross-account-role-name       = "${var.project-name}-cross-account"
   admin-group-name              = "${var.project-name}-admins"
   stack-set-admin-role-name     = "${var.project-name}-AWSCloudFormationStackSetExecutionRole"
@@ -119,7 +117,6 @@ locals {
     },
     quail-quants = {
       instance-types = ["t3.micro", "t3.small"],
-      accounts       = ["442249827373", "815246801749"],
       operating-systems = [
         {
           name                  = "AWS Linux 2",
@@ -180,7 +177,7 @@ locals {
 module "backend" {
   source = "../../modules/backend"
 
-  skip-resources-first-deployment = local.skip-resources-first-deployment
+  skip-resources-first-deployment = var.skip-resources-first-deployment
 
   # Project definition vars
   project-name    = var.project-name
@@ -222,7 +219,7 @@ module "backend" {
 
 module "frontend-ecs-hosting" {
   source = "../../modules/frontend-ecs-hosting"
-  count = local.skip-resources-first-deployment ? 0 : 1
+  count = var.skip-resources-first-deployment ? 0 : 1
 
   # Project definition vars
   project-name    = var.project-name

@@ -9,6 +9,7 @@ locals {
   REACT_APP_REGION_LABELS=${jsonencode(var.region-name-labels)}
   REACT_APP_ACCOUNT_LABELS=${jsonencode(var.account-name-labels)}
   REACT_APP_INSTANCE_LABELS=${jsonencode(var.instance-name-labels)}
+  REACT_APP_GROUP_LABELS=${jsonencode(var.group-name-labels)}
   EOT
 }
 

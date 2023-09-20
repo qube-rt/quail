@@ -26,7 +26,7 @@ const getUserData = () => {
   return {
     username: token?.claims?.name,
     email: token?.claims?.email,
-    groups: token?.claims?.groups.join(', '),
+    groups: token?.claims?.groups.sort() || [],
     is_superuser: !!token?.claims?.groups.includes(Config.adminGroupName),
   };
 };

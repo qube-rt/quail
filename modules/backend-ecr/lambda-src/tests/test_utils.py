@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from utils import (
-    get_permissions_for_groups,
+    get_permissions_for_all_groups,
     PermissionsMissing,
     get_os_config,
     get_params_for_region,
@@ -15,13 +15,13 @@ from utils import (
 from .conftest import dummy_cfn_template_json
 
 
-def test_get_permissions_for_groups_no_data(permission_table, permission_table_name):
+def test_get_permissions_for_all_groups_no_data(permission_table, permission_table_name):
     with pytest.raises(PermissionsMissing):
-        get_permissions_for_groups(table_name=permission_table_name, group_name="nonexistent")
+        get_permissions_for_all_groups(table_name=permission_table_name, group_name="nonexistent")
 
 
-def test_get_permissions_for_groups_success(permission_table, permission_table_name):
-    permissions = get_permissions_for_groups(table_name=permission_table_name, group_name="private")
+def test_get_permissions_for_all_groups_success(permission_table, permission_table_name):
+    permissions = get_permissions_for_all_groups(table_name=permission_table_name, group_name="private")
 
     assert "instance_types" in permissions
     assert "operating_systems" in permissions

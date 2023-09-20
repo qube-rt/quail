@@ -24,15 +24,17 @@ data "aws_iam_policy_document" "cleanup_state_machine_role_policy_document" {
     effect = "Allow"
     actions = [
       "logs:CreateLogDelivery",
+      "logs:CreateLogStream",
       "logs:GetLogDelivery",
       "logs:UpdateLogDelivery",
       "logs:DeleteLogDelivery",
       "logs:ListLogDeliveries",
+      "logs:PutLogEvents",
       "logs:PutResourcePolicy",
       "logs:DescribeResourcePolicies",
       "logs:DescribeLogGroups"
     ]
-    resources = [aws_cloudwatch_log_group.cleanup_state_machine_log_group.arn]
+    resources = ["*"]
   }
 
   # Lambda permissions

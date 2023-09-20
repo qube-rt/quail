@@ -4,14 +4,18 @@ from marshmallow import Schema, fields, EXCLUDE, validates_schema, ValidationErr
 from marshmallow.validate import OneOf, Range, Length, Equal
 
 
+def group_serializer(groups):
+    class GroupSchema(Schema):
+        group = fields.Str(required=True, validate=OneOf(groups))
+
+        class Meta:
+            unknown = EXCLUDE
+
+    return GroupSchema()
+
+
 def instance_post_serializer(
-    accounts,
-    region_map,
-    instance_types,
-    max_days_to_expiry,
-    initiator_username,
-    initator_email,
-    is_superuser,
+    accounts, region_map, instance_types, max_days_to_expiry, initiator_username, initator_email, is_superuser
 ):
     min_date = datetime.now(timezone.utc) + timedelta(hours=2)
     max_date = datetime.now(timezone.utc) + timedelta(days=max_days_to_expiry)

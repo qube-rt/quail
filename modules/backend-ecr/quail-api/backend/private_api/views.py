@@ -6,14 +6,14 @@ from flask import request, current_app
 from backend.email_utils import send_email
 
 
-def get_tags(user, tag_config):
+def get_tags(environment, tag_config):
     tags = []
 
     for tag in tag_config:
         if tag["tag-value"].startswith("$"):
             # Skip leading dollar sign
             attribute_key = tag["tag-value"][1:]
-            tag["tag-value"] = user[attribute_key]
+            tag["tag-value"] = environment[attribute_key]
 
         tags.append(tag)
 
@@ -33,7 +33,7 @@ def post_provision():
 
     # Evaluate tags
     user_claims = payload["user"]
-    tags = get_tags(user=user_claims, tag_config=tag_config)
+    tags = get_tags(environment={**user_claims, "group": payload["group"]}, tag_config=tag_config)
 
     stackset_id = current_app.aws.create_stack_set(
         project_name=project_name,
@@ -44,7 +44,7 @@ def post_provision():
         operating_system=payload["operating_system"],
         expiry=datetime.fromisoformat(payload["expiry"]),
         email=payload["email"],
-        groups=payload["groups"],
+        group=payload["group"],
         instance_name=payload["instance_name"],
         username=payload["username"],
     )

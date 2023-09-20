@@ -3,12 +3,12 @@ import React, { useContext } from 'react';
 import { useOktaAuth } from '@okta/okta-react';
 import { makeStyles } from '@mui/styles';
 import {
-  AppBar, Toolbar, Button, FormControlLabel, Switch,
+  AppBar, Toolbar, Button, FormControlLabel, Switch, Select, MenuItem, selectClasses, Box,
 } from '@mui/material';
 import { Brightness4 as Brightness4Icon } from '@mui/icons-material';
 
 import { CustomThemeContext } from '../themes/CustomThemeProvider';
-import { getUserData } from '../utils';
+import { getLabel, getUserData } from '../utils';
 import logo from '../logo.png';
 
 const useStyles = makeStyles(() => ({
@@ -31,11 +31,27 @@ const useStyles = makeStyles(() => ({
     'margin-top': 5,
   },
   username: {
-    'font-weight': 'bold',
+
+  },
+  selectRoot: {
+    padding: 0,
+    color: '#fff',
+    '&.Mui-focused': {
+      backgroundColor: 'inherit',
+    },
+    '&.MuiOutlinedInput-input': {
+      backgroundColor: 'red',
+    },
+    [`& .${selectClasses.iconStandard}`]: {
+      fill: '#fff',
+    },
+    [`& .${selectClasses.select}`]: {
+      paddingBottom: 0,
+    },
   },
 }));
 
-const TopAppBar = ({ onReload }) => {
+const TopAppBar = ({ onReload, selectedGroup, setSelectedGroup }) => {
   const classes = useStyles();
 
   const { oktaAuth } = useOktaAuth();
@@ -61,10 +77,31 @@ const TopAppBar = ({ onReload }) => {
         <button type="button" onClick={onReload} className={classes.logoButton}>
           <img src={logo} alt="Logo" className={classes.logo} />
         </button>
-        <span>
-          {/* eslint-disable-next-line react/jsx-one-expression-per-line */}
-          Logged in as: <span className={classes.username}>{username} ({groups})</span>
-        </span>
+        <Box>
+          <Box sx={{
+            display: 'inline',
+
+            mx: 2,
+          }}
+          >
+            {username}
+          </Box>
+          <Select
+            value={selectedGroup}
+            label="Group"
+            variant="standard"
+            onChange={(e) => setSelectedGroup(e.target.value)}
+            className={classes.selectRoot}
+            disableUnderline
+            sx={{
+              fontWeight: 'bold',
+            }}
+          >
+            {groups.map((group) => (
+              <MenuItem value={group} key={group}>{getLabel('groupLabels', group)}</MenuItem>
+            ))}
+          </Select>
+        </Box>
         <div>
           <FormControlLabel
             control={<Switch checked={isDark} onChange={handleThemeChange} color="primary" />}

@@ -14,6 +14,7 @@ module "frontend-image" {
   # Application config
   api-root-url = var.api-root-url
   account-name-labels = var.account-name-labels
+  group-name-labels = var.group-name-labels
 
   # Okta Auth config
   jwt-issuer    = var.auth_server_issuer

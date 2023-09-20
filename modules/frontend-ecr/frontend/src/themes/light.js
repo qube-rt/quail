@@ -8,7 +8,7 @@ const theme = createTheme({
       xs: 0,
       sm: 600,
       md: 960,
-      lg: 1420,
+      lg: 1520,
       xl: 1920,
     },
   },

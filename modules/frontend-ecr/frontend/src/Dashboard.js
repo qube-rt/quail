@@ -16,25 +16,23 @@ import {
   getUserData,
 } from './utils';
 
+const defaultPermissions = {
+  regionMap: undefined,
+
+  regions: [],
+  accounts: [],
+  instanceTypes: [],
+  operatingSystems: [],
+  maxExpiry: undefined,
+};
+
 const Dashboard = () => {
-  const { username: initialUsername, email: initialEmail, is_superuser } = getUserData();
+  const {
+    username: initialUsername, email: initialEmail, is_superuser, groups,
+  } = getUserData();
 
   const [state, setState] = useState({
-    regionMap: undefined,
-
-    regions: [],
-    accounts: [],
-    instanceTypes: [],
-    operatingSystems: [],
-    expiry: undefined,
-    selectedRegion: undefined,
-    selectedAccount: undefined,
-    operatingSystem: undefined,
-    instanceType: undefined,
-    maxExpiry: undefined,
-    instanceName: '',
-    username: initialUsername,
-    email: initialEmail,
+    // Create a default expiry date, 25 hours in the future
 
     formErrors: {},
     nonFormError: '',
@@ -49,6 +47,12 @@ const Dashboard = () => {
 
   const resetForm = () => {
     updateState({
+      expiry: moment(moment().startOf('hour')).add(25, 'hours'),
+      selectedRegion: undefined,
+      selectedAccount: undefined,
+      operatingSystem: undefined,
+      instanceType: undefined,
+
       instanceName: '',
       email: initialEmail,
       username: initialUsername,
@@ -84,20 +88,35 @@ const Dashboard = () => {
     updateState({ pollInterval: interval });
   };
 
+  const [selectedGroup, setSelectedGroup] = useState('');
+  useEffect(() => {
+    if (groups.length > 0) {
+      setSelectedGroup(groups[0]);
+    }
+    resetForm();
+  }, [groups]);
+
+  const [globalPermissions, setGlobalPermissions] = useState({});
+  const [groupPermissions, setGroupPermissions] = useState(defaultPermissions);
+  useEffect(() => {
+    if (groups.length > 1) {
+      setSelectedGroup(groups[0]);
+    }
+  }, [groups]);
+  useEffect(() => {
+    if (globalPermissions && selectedGroup) {
+      setGroupPermissions(globalPermissions[selectedGroup] || defaultPermissions);
+    }
+  }, [globalPermissions, selectedGroup]);
+
   const handleReload = async () => {
     handleUnmount();
 
     updateState({
-      regions: [],
-      accounts: [],
-      instanceTypes: [],
-      operatingSystems: [],
-      expiry: undefined,
       selectedRegion: undefined,
       selectedAccount: undefined,
       operatingSystem: undefined,
       instanceType: undefined,
-      maxExpiry: undefined,
       instanceName: '',
       username: initialUsername,
       email: initialEmail,
@@ -112,32 +131,34 @@ const Dashboard = () => {
     // Fetch the params the user has permissions for
     appApi.getParams()
       .then(({ data }) => {
-        const {
-          region_map, instance_types, max_days_to_expiry,
-        } = data;
-
-        // Create a default expiry date, 25 hours in the future
         const startTime = moment().startOf('hour');
-        const expiry = moment(startTime).add(25, 'hours');
-        const maxExpiry = moment(startTime).add(parseInt(max_days_to_expiry, 10), 'days');
+        const groupData = Object.fromEntries(
+          Object.entries(data).map(([groupName, groupConfig]) => {
+            const {
+              region_map, instance_types, max_days_to_expiry,
+            } = groupConfig;
 
-        const accounts = Object.keys(region_map);
-        const selectedAccount = accounts[0];
-        const regions = Object.keys(region_map[selectedAccount]);
-        const selectedRegion = regions[0];
-        updateState({
-          regionMap: region_map,
-          instanceTypes: instance_types,
-          instanceType: instance_types[0],
-          operatingSystems: region_map[selectedAccount][selectedRegion],
-          operatingSystem: region_map[selectedAccount][selectedRegion][0],
-          accounts,
-          regions,
-          selectedAccount,
-          selectedRegion,
-          expiry,
-          maxExpiry,
-        });
+            const maxExpiry = moment(startTime).add(parseInt(max_days_to_expiry, 10), 'days');
+
+            const accounts = Object.keys(region_map);
+            const selectedAccount = accounts[0];
+            const regions = Object.keys(region_map[selectedAccount]);
+            const selectedRegion = regions[0];
+
+            return [groupName, {
+              regionMap: region_map,
+              instanceTypes: instance_types,
+              instanceType: instance_types[0],
+              operatingSystems: region_map[selectedAccount][selectedRegion],
+              operatingSystem: region_map[selectedAccount][selectedRegion][0],
+              accounts,
+              regions,
+              maxExpiry,
+            }];
+          }),
+        );
+
+        setGlobalPermissions(groupData);
 
         // If any instances are in the process of being provisioned,
         // check for updates regularly
@@ -145,14 +166,9 @@ const Dashboard = () => {
       })
       .catch((response) => {
         updateState({
-          accounts: [],
-          regions: [],
-          instanceTypes: [],
-          operatingSystems: [],
-          maxExpiry: '',
           nonFormError: 'Could not fetch user permissions',
         });
-        enqueueSnackbar(`Error fetching permissions: ${response.data.message}`, { variant: 'error' });
+        enqueueSnackbar(`Error fetching permissions: ${response.message}`, { variant: 'error' });
       })
       .then(() => {
         updateState({ formLoading: false });
@@ -167,7 +183,9 @@ const Dashboard = () => {
   const addPendingInstance = (params) => {
     setCurrentInstances([
       {
-        ...pick(params, ['stackset_id', 'region', 'account_id', 'instanceType', 'expiry', 'email', 'username', 'instanceName']),
+        ...pick(params, [
+          'stackset_id', 'region', 'account_id', 'instanceType', 'expiry', 'email', 'username', 'instanceName', 'group',
+        ]),
         operatingSystemName: params.operatingSystem,
       },
       ...currentInstances,
@@ -226,12 +244,16 @@ const Dashboard = () => {
         ? { handlingDelete: true, ...item } : item),
     ));
 
-    await appApi.deleteInstance({ instanceId: instance.stackset_id });
+    try {
+      await appApi.deleteInstance({ instanceId: instance.stackset_id });
+      setCurrentInstances(currentInstances.filter(
+        (item) => item.stackset_id !== instance.stackset_id,
+      ));
 
-    enqueueSnackbar('Instance submitted for deprovisioning.', { variant: 'success' });
-    setCurrentInstances(currentInstances.filter(
-      (item) => item.stackset_id !== instance.stackset_id,
-    ));
+      enqueueSnackbar('Instance submitted for deprovisioning.', { variant: 'success' });
+    } catch (response) {
+      enqueueSnackbar(`Could not delete: ${response.response.data.error || response.message}`, { variant: 'error' });
+    }
   };
 
   const handleExtendClick = async (instance) => {
@@ -250,13 +272,13 @@ const Dashboard = () => {
             ...item,
             expiry: response.data.expiry,
             can_extend: response.data.can_extend,
-            handlingExtend: true,
+            handlingExtend: false,
           }
           : item
         ),
       ));
     } catch (response) {
-      enqueueSnackbar(`Could not extend: ${response.data.message}`, { variant: 'error' });
+      enqueueSnackbar(`Could not extend: ${response.response.data.error || response.message}`, { variant: 'error' });
       setCurrentInstances(currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
           ? { ...item, handlingExtend: false } : item),
@@ -280,7 +302,7 @@ const Dashboard = () => {
       ));
       checkForInstanceUpdates();
     } catch (response) {
-      enqueueSnackbar(`Could not start instance: ${response.data.message}`, { variant: 'error' });
+      enqueueSnackbar(`Could not start instance: ${response.response.data.error || response.message}`, { variant: 'error' });
       setCurrentInstances(currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
           ? { ...item, handlingStart: false } : item),
@@ -304,7 +326,7 @@ const Dashboard = () => {
       ));
       checkForInstanceUpdates();
     } catch (response) {
-      enqueueSnackbar(`Could not start instance: ${response.data.message}`, { variant: 'error' });
+      enqueueSnackbar(`Could not start instance: ${response.response.data.error || response.message}`, { variant: 'error' });
       setCurrentInstances(currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
           ? { ...item, handlingStop: false } : item),
@@ -317,9 +339,9 @@ const Dashboard = () => {
 
     if (fieldName === 'selectedAccount') {
       const targetAccount = event.target.value;
-      const regions = Object.keys(state.regionMap[targetAccount]);
+      const regions = Object.keys(groupPermissions.regionMap[targetAccount]);
       const selectedRegion = regions[0];
-      const operatingSystems = state.regionMap[targetAccount][selectedRegion];
+      const operatingSystems = groupPermissions.regionMap[targetAccount][selectedRegion];
       changes = {
         regions,
         selectedRegion,
@@ -330,7 +352,8 @@ const Dashboard = () => {
     }
 
     if (fieldName === 'selectedRegion') {
-      const operatingSystems = state.regionMap[state.selectedAccount][event.target.value];
+      const operatingSystems = groupPermissions
+        .regionMap[state.selectedAccount][event.target.value];
       changes = {
         operatingSystems,
         operatingSystem: operatingSystems[0],
@@ -378,7 +401,7 @@ const Dashboard = () => {
       ));
       checkForInstanceUpdates();
     } catch (response) {
-      enqueueSnackbar(`Could not update instance: ${response.data.message}`, { variant: 'error' });
+      enqueueSnackbar(`Could not update instance: ${response.response.data.error || response.message}`, { variant: 'error' });
     }
   };
 
@@ -399,6 +422,7 @@ const Dashboard = () => {
     params.expiry = params.expiry.toISOString();
     params.account = state.selectedAccount;
     params.region = state.selectedRegion;
+    params.group = selectedGroup;
     saveConfiguration(params);
 
     try {
@@ -433,8 +457,8 @@ const Dashboard = () => {
   }, []);
 
   const {
-    accounts, regions, instanceTypes, operatingSystems, expiry,
-    selectedRegion, instanceType, operatingSystem, maxExpiry,
+    expiry,
+    selectedRegion, instanceType, operatingSystem,
     previousConfigs, provisionLoading,
     instanceName, formErrors, username,
     email, nonFormError, formLoading, selectedAccount,
@@ -444,6 +468,8 @@ const Dashboard = () => {
     <Container>
       <TopAppBar
         onReload={handleReload}
+        selectedGroup={selectedGroup}
+        setSelectedGroup={setSelectedGroup}
       />
 
       <Box my={6}>
@@ -451,7 +477,7 @@ const Dashboard = () => {
         <InstancesTable
           is_superuser={is_superuser}
           instances={currentInstances}
-          instanceTypes={instanceTypes}
+          instanceTypesPerGroup={globalPermissions}
           onDeleteClick={handleDeleteClick}
           onExtendClick={handleExtendClick}
           onStartClick={handleStartClick}
@@ -464,16 +490,16 @@ const Dashboard = () => {
         <Typography variant="h5" mb={3}>Provision a new instance</Typography>
         <InstanceForm
           is_superuser={is_superuser}
-          accounts={accounts}
-          regions={regions}
+          accounts={groupPermissions.accounts}
+          regions={groupPermissions.regions}
           selectedRegion={selectedRegion}
           selectedAccount={selectedAccount}
-          instanceTypes={instanceTypes}
+          instanceTypes={groupPermissions.instanceTypes}
           selectedInstanceType={instanceType}
-          operatingSystems={operatingSystems}
+          operatingSystems={groupPermissions.operatingSystems}
           selectedOperatingSystem={operatingSystem}
           expiry={expiry}
-          maxExpiry={maxExpiry}
+          maxExpiry={groupPermissions.maxExpiry}
           instanceName={instanceName}
           username={username}
           email={email}

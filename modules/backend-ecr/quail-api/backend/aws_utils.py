@@ -92,71 +92,65 @@ class AwsUtils:
             "claims": claims,
         }
 
-    def get_permissions_for_groups(self, groups):
-        client = boto3.client("dynamodb")
-
-        result = {
-            "instance_types": [],
-            "operating_systems": [],
-            "max_days_to_expiry": 0,
-            "max_instance_count": 0,
-            "max_extension_count": 0,
-        }
+    def get_permissions_for_all_groups(self, groups):
+        result = {}
 
         for group_name in groups:
-            fetched = client.get_item(TableName=self.permissions_table_name, Key={"group": {"S": group_name}})
-
-            if "Item" not in fetched:
-                logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
+            permissions = self.get_permissions_for_one_group(group_name=group_name)
+            if not permissions:
                 continue
 
-            item = fetched["Item"]
+            result[group_name] = permissions
 
-            result = {
-                "instance_types": list(set([*result["instance_types"], *item["instanceTypes"]["SS"]])),
-                "operating_systems": [
-                    *result["operating_systems"],
-                    *json.loads(item["operatingSystems"]["S"]),
-                ],
-                # Even though DynamoDB treats Number type as numeric internally, but accepts and returns them
-                # as strings hence the need to cast the values explicitly
-                # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes
-                "max_days_to_expiry": max([result["max_days_to_expiry"], int(item["maxDaysToExpiry"]["N"])]),
-                "max_instance_count": max([result["max_instance_count"], int(item["maxInstanceCount"]["N"])]),
-                "max_extension_count": max([result["max_extension_count"], int(item["maxExtensionCount"]["N"])]),
-            }
+        return result
 
+    def get_permissions_for_one_group(self, group_name):
+        client = boto3.client("dynamodb")
+
+        result = {}
+
+        fetched = client.get_item(TableName=self.permissions_table_name, Key={"group": {"S": group_name}})
+
+        if "Item" not in fetched:
+            logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
+            return result
+
+        item = fetched["Item"]
+
+        operating_systems = json.loads(item["operatingSystems"]["S"])
         region_map = defaultdict(lambda: defaultdict(list))
-        for os_item in result["operating_systems"]:
+        for os_item in operating_systems:
             for account_id in os_item["region-map"].keys():
                 account_map = os_item["region-map"][account_id]
                 for region_name in account_map.keys():
                     region_map[account_id][region_name] += [os_item["name"]]
 
-        result["region_map"] = region_map
+        return {
+            "instance_types": item["instanceTypes"]["SS"],
+            "region_map": region_map,
+            # Even though DynamoDB treats Number type as numeric internally, but accepts and returns them
+            # as strings hence the need to cast the values explicitly
+            # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes
+            "max_days_to_expiry": int(item["maxDaysToExpiry"]["N"]),
+            "max_instance_count": int(item["maxInstanceCount"]["N"]),
+            "max_extension_count": int(item["maxExtensionCount"]["N"]),
+        }
 
-        return result
-
-    def get_os_config(self, groups, os_name):
+    def get_os_config(self, group_name, os_name):
         client = boto3.client("dynamodb")
 
-        result = []
-        for group_name in groups:
-            fetched = client.get_item(TableName=self.permissions_table_name, Key={"group": {"S": group_name}})
+        fetched = client.get_item(TableName=self.permissions_table_name, Key={"group": {"S": group_name}})
 
-            if "Item" not in fetched:
-                logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
-                continue
+        if "Item" not in fetched:
+            raise PermissionsMissing(
+                message=f"The group '{group_name}' does not have any permissions associated with it."
+            )
 
-            os_configs = json.loads(fetched["Item"]["operatingSystems"]["S"])
-            target_configs = [config for config in os_configs if config["name"] == os_name]
-            result = [*result, *target_configs]
+        os_configs = json.loads(fetched["Item"]["operatingSystems"]["S"])
+        result = [config for config in os_configs if config["name"] == os_name]
 
         if not result:
             raise PermissionsMissing(message=f"Could not find the permission for '{os_name}' in groups: {groups}.")
-
-        if len(result) > 1:
-            logger.info(f"Multiple permissions for '{os_name}' in groups: {groups}.")
 
         return result[0]
 
@@ -191,7 +185,7 @@ class AwsUtils:
         user,
         username,
         email,
-        groups,
+        group,
     ):
         sfn_client = boto3.client("stepfunctions")
         response = sfn_client.start_execution(
@@ -207,7 +201,7 @@ class AwsUtils:
                     "user": user,
                     "username": username,
                     "email": email,
-                    "groups": groups,
+                    "group": group,
                 }
             ),
         )
@@ -231,6 +225,7 @@ class AwsUtils:
             "extension_count": int(item["extensionCount"]["N"]),
             "username": item["username"]["S"],
             "email": item["email"]["S"],
+            "group": item["group"]["S"],
         }
 
     def get_all_stack_sets(self):
@@ -329,7 +324,7 @@ class AwsUtils:
 
             yield current_result
 
-    def get_instance_details(self, stacksets, max_extension_count=None, is_superuser=False):
+    def get_instance_details(self, stacksets, max_extension_per_group=dict(), is_superuser=False):
         results = []
 
         for stackset in stacksets:
@@ -338,12 +333,15 @@ class AwsUtils:
             stack_username = stackset["username"]
             stack_email = stackset["email"]
             extension_count = stackset["extension_count"]
+            group = stackset["group"]
 
             for instance_data in self.fetch_stackset_instances(stackset_id=stackset_id):
                 instance_data["expiry"] = expiry
                 instance_data["username"] = stack_username
                 instance_data["email"] = stack_email
+                instance_data["group"] = group
 
+                max_extension_count = max_extension_per_group.get(group, {}).get("max_extension_count", None)
                 if is_superuser:
                     instance_data["can_extend"] = True
                 elif max_extension_count is not None:
@@ -391,13 +389,7 @@ class AwsUtils:
         if "Item" not in item:
             return {}
 
-        result = {
-            "stackset_id": item["Item"]["stacksetID"]["S"],
-            "username": item["Item"]["username"]["S"],
-            "email": item["Item"]["email"]["S"],
-            "extension_count": int(item["Item"]["extensionCount"]["N"]),
-            "expiry": datetime.fromisoformat(item["Item"]["expiry"]["S"]),
-        }
+        result = self.serialize_state_table_row(item["Item"])
         return result
 
     def initiate_stackset_deprovisioning(self, stackset_id, owner_email):
@@ -471,13 +463,13 @@ class AwsUtils:
         operating_system,
         expiry,
         email,
-        groups,
+        group,
         instance_name,
         username,
     ):
         # Get the remaining params from permissions
         os_config = self.get_os_config(
-            groups=groups,
+            group_name=group,
             os_name=operating_system,
         )
 
@@ -602,6 +594,7 @@ class AwsUtils:
                 "stacksetID": {"S": stackset_id},
                 "username": {"S": username},
                 "email": {"S": email},
+                "group": {"S": group},
                 "extensionCount": {"N": "0"},
                 "expiry": {"S": expiry.isoformat()},
             },
