@@ -90,3 +90,9 @@ variable "instance-name-labels" {
   }
   description = "Mapping of AWS EC2 Instance types to user friendly names."
 }
+
+variable "group-name-labels" {
+  type        = map(string)
+  default     = {}
+  description = "Mapping of Okta group names to user friendly names."
+}

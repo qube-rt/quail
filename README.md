@@ -102,12 +102,12 @@ in order to complete the initial deployment.
 
 1. Deploy the resources from the `backend-image` directory.
 1. Use the outputs from the `backend-image` deployment as input to `infrastructure`
-1. Set `skip-resources-first-deployment` to `true` in the `infrastructure` config.
+1. Set `skip-resources-first-deployment` to `true` in the `infrastructure` variable file.
 1. Deploy the `infrastructure` dir.
 1. Use the outputs from the `infrastructure` deployment as input to `frontend-image`
 1. Deploy the `frontend-image` directory.
 1. Use the outputs from the `frontend-image` deployment as input to `infrastructure`
-1. Set `skip-resources-first-deployment` to `false` in the `infrastructure` config.
+1. Set `skip-resources-first-deployment` to `false` in the `infrastructure` variable file.
 1. Deploy the infrastructure directory again.
 
 ## Limitations

@@ -9,6 +9,7 @@ const REGION_LABELS = JSON.parse(process.env.REACT_APP_REGION_LABELS);
 const ACCOUNT_LABELS = JSON.parse(process.env.REACT_APP_ACCOUNT_LABELS);
 const INSTANCE_LABELS = JSON.parse(process.env.REACT_APP_INSTANCE_LABELS);
 const ADMIN_GROUP_NAME = process.env.REACT_APP_ADMIN_GROUP_NAME;
+const GROUP_LABELS = JSON.parse(process.env.REACT_APP_GROUP_LABELS);
 
 const Config = {
   domain,
@@ -27,6 +28,7 @@ const Config = {
   accountLabels: ACCOUNT_LABELS,
   instanceLabels: INSTANCE_LABELS,
   adminGroupName: ADMIN_GROUP_NAME,
+  groupLabels: GROUP_LABELS,
 };
 
 export default Config;

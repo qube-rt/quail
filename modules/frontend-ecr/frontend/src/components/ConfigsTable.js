@@ -7,7 +7,6 @@ import {
 } from '@mui/material';
 
 import { formatDate, getLabel } from '../utils';
-import Config from '../config';
 
 const useStyles = makeStyles((theme) => ({
   table: {
@@ -36,6 +35,7 @@ export default function ConfigsTable(props) {
           <TableRow>
             <TableCell className={classes.tableHeaderCell}>Account</TableCell>
             <TableCell className={classes.tableHeaderCell}>Region</TableCell>
+            <TableCell className={classes.tableHeaderCell}>Group</TableCell>
             <TableCell className={classes.tableHeaderCell}>Instance Type</TableCell>
             <TableCell className={classes.tableHeaderCell}>Operating System</TableCell>
             <TableCell className={classes.tableHeaderCell}>Expires at</TableCell>
@@ -54,6 +54,9 @@ export default function ConfigsTable(props) {
               </TableCell>
               <TableCell className={classes.tableCell}>
                 { getLabel('regionLabels', config.region) }
+              </TableCell>
+              <TableCell className={classes.tableCell}>
+                { getLabel('groupLabels', config.group) }
               </TableCell>
               <TableCell className={classes.tableCell}>
                 { getLabel('instanceLabels', config.instanceType) }

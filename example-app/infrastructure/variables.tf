@@ -22,6 +22,12 @@ variable "project-name" {
   description = "Project name, used for resource naming"
 }
 
+variable "skip-resources-first-deployment" {
+  type        = bool
+  default     = false
+  description = "Set to true for the initial deployment, false otherwise."
+}
+
 variable "notification-email" {
   type        = string
   description = "Email address from which notifications will be sent. Needs to be verified in SES."

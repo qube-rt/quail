@@ -20,4 +20,4 @@ DYNAMODB_PERMISSIONS_TABLE_NAME=quail-permissions
 DYNAMODB_REGIONAL_METADATA_TABLE_NAME=quail-regional-data
 DYNAMODB_STATE_TABLE_NAME=quail-state-data
 SNS_ERROR_TOPIC_ARN=arn:aws:sns:eu-west-1:442249827373:quail-error-topic
-TAG_CONFIG=[{"tag-name":"user","tag-value":"$email"},{"tag-name":"group","tag-value":"profile"}]
+TAG_CONFIG=[{"tag-name":"user","tag-value":"$email"},{"tag-name":"group","tag-value":"$group"}]

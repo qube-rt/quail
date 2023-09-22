@@ -28,6 +28,12 @@ variable "account-name-labels" {
   description = "Mapping of AWS account IDs to user friendly names."
 }
 
+variable "group-name-labels" {
+  type        = map(string)
+  default     = {}
+  description = "Mapping of Okta group names to user friendly names."
+}
+
 variable "api-root-url" {
   type        = string
   description = "Base URL of the public API"

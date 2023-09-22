@@ -1,6 +1,6 @@
 import json
 from operator import itemgetter
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from flask import current_app, request
 from marshmallow import ValidationError
@@ -10,17 +10,14 @@ from backend.exceptions import (
     InvalidArgumentsError,
     InstanceUpdateError,
 )
-from backend.serializers import instance_post_serializer, instance_patch_serializer
+from backend.serializers import group_serializer, instance_post_serializer, instance_patch_serializer
 
 
 def get_params():
     groups = itemgetter("groups")(current_app.aws.get_claims(request=request))
 
     # Get config from dynamodb
-    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
-
-    # Restructure the permissions
-    del permissions["operating_systems"]
+    permissions = current_app.aws.get_permissions_for_all_groups(groups=groups)
 
     return permissions
 
@@ -32,11 +29,11 @@ def get_instances():
 
     # Get config from dynamodb
     stacksets = current_app.aws.get_owned_stacksets(email=email, is_superuser=is_superuser)
-    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
-    max_extension_count = permissions["max_extension_count"]
+    permissions = current_app.aws.get_permissions_for_all_groups(groups=groups)
+
     instances = current_app.aws.get_instance_details(
         stacksets=stacksets,
-        max_extension_count=max_extension_count,
+        max_extension_per_group=permissions,
         is_superuser=is_superuser,
     )
 
@@ -52,8 +49,19 @@ def post_instances():
     # Get body params
     payload = request.json
 
-    # Get params the user has permissions for
-    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
+    # Get user group
+    try:
+        group_data = group_serializer(groups=groups).load(payload)
+    except ValidationError as e:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"message": e.messages}),
+            "headers": {"Content-Type": "application/json"},
+        }
+    current_group = group_data["group"]
+
+    # Get user permissions for the selected group
+    permissions = current_app.aws.get_permissions_for_one_group(group_name=current_group)
     permitted_accounts = list(permissions["region_map"].keys())
 
     # Validate the user provided params, raises a ValidationException if user has no permissions
@@ -93,7 +101,7 @@ def post_instances():
     # Provision stackset
     sfn_execution_arn = current_app.aws.provision_stackset(
         email=stack_email,
-        groups=groups,
+        group=current_group,
         username=stack_username,
         user=claims,
         **data,
@@ -168,7 +176,7 @@ def patch_instance(stackset_id):
         raise UnauthorizedForInstanceError()
 
     # Get params the user has permissions for and sanitize input
-    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
+    permissions = current_app.aws.get_permissions_for_one_group(group_name=stackset_data["group"])
     serializer = instance_patch_serializer(
         instance_types=permissions["instance_types"],
     )
@@ -195,7 +203,7 @@ def post_instance_extend(stackset_id):
         raise UnauthorizedForInstanceError()
 
     # get user group permissions
-    permissions = current_app.aws.get_permissions_for_groups(groups=groups)
+    permissions = current_app.aws.get_permissions_for_one_group(group_name=stackset_data["group"])
     max_extension_count = permissions["max_extension_count"]
 
     # check user hasn't exceeded the max number of extensions
@@ -204,7 +212,7 @@ def post_instance_extend(stackset_id):
             f"You cannot extend instance lifetime more than {stackset_data['extension_count']} times."
         )
 
-    new_expiry = stackset_data["expiry"] + timedelta(days=1)
+    new_expiry = datetime.fromisoformat(stackset_data["expiry"]) + timedelta(days=1)
     new_extension_count = stackset_data["extension_count"] + 1
 
     current_app.aws.update_instance_expiry(

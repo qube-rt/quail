@@ -55,17 +55,17 @@ data "aws_iam_policy_document" "allow_access_from_remote_accounts" {
 resource "aws_s3_object" "user_data_file" {
   bucket = aws_s3_bucket.cfn_data_bucket.bucket
   key    = each.key
-  source = each.value
-  etag   = filemd5(each.key)
+  source = "${path.module}/${each.key}"
+  etag   = filemd5("${path.module}/${each.key}")
 
-  for_each = fileset("", "${path.root}/user-data/*")
+  for_each = fileset(path.module, "user-data/*")
 }
 
 resource "aws_s3_object" "cfn_template_file" {
   bucket = aws_s3_bucket.cfn_data_bucket.bucket
   key    = each.key
-  source = each.value
-  etag   = filemd5(each.key)
+  source = "${path.module}/${each.key}"
+  etag   = filemd5("${path.module}/${each.key}")
 
-  for_each = fileset("", "${path.root}/cfn-templates/*")
+  for_each = fileset(path.module, "cfn-templates/*")
 }
