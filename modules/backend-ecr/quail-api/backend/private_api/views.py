@@ -227,8 +227,8 @@ def post_cleanup_schedule():
             continue
 
         for notice in cleanup_notice_notification_hours:
-            window_start = now + timedelta(hours=notice)
-            window_end = now + timedelta(hours=notice - 1)
+            window_start = expiry - timedelta(hours=notice + 1)
+            window_end = expiry - timedelta(hours=notice)
 
             # current_app.logger.info(f"{window_start} {now} {window_end}")
             if window_start < now < window_end:
