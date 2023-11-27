@@ -66,6 +66,12 @@ variable "hosted-zone-name" {
   description = "The name of the hosted zone where the record will be added to point the `hosting-domain` to the Load Balancer, e.g. quail.click."
 }
 
+variable "provision-timeout" {
+  type        = number
+  description = "The numer of seconds the provision time machine will wait for an instance to be ready before giving up."
+  default     = 600
+}
+
 variable "instance-tags" {
   type = list(object({
     tag-name  = string,
@@ -94,6 +100,7 @@ variable "resource-tags" {
   description = "Tags to assign to resources provisioned by terraform. Apart from the listed tags, a {part_of: $${project-name}} tag is assigned to all resources."
 }
 
+# Okta config
 variable "okta-org-name" {
   type        = string
   description = "Okta Organization name"
@@ -111,12 +118,12 @@ variable "okta-api-token" {
 
 # From the backend-image module
 variable "public-api-image-uri" {
-  type = string
+  type        = string
   description = "ECR URI of the public API docker image."
 }
 
 variable "private-api-image-uri" {
-  type = string
+  type        = string
   description = "ECR URI of the private API docker image."
 }
 

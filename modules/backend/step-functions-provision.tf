@@ -1,5 +1,6 @@
 locals {
-  provision_sfn_name = "${var.project-name}-provision-state-machine"
+  provision_sfn_name    = "${var.project-name}-provision-state-machine"
+  provision_retry_delay = 30
 }
 
 # CloudWatch log group
@@ -123,9 +124,9 @@ resource "aws_sfn_state_machine" "provision_state_machine" {
             "ErrorEquals" : [
               "StackSetExecutionInProgressException"
             ],
-            "IntervalSeconds" : 30,
+            "IntervalSeconds" : local.provision_retry_delay,
             "BackoffRate" : 1,
-            "MaxAttempts" : 20
+            "MaxAttempts" : floor(var.provision-timeout / local.provision_retry_delay) + 1
           }
         ],
         "Catch" : [

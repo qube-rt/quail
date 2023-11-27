@@ -47,11 +47,11 @@ variable "admin-group-name" {
   description = "Name of the admins Okta group."
 }
 
- variable "account-name-labels" {
-   type        = map(string)
-   default     = {}
-   description = "Mapping of AWS account IDs to user friendly names."
- }
+variable "account-name-labels" {
+  type        = map(string)
+  default     = {}
+  description = "Mapping of AWS account IDs to user friendly names."
+}
 
 variable "region-name-labels" {
   type = map(string)

@@ -56,6 +56,11 @@ variable "hosted-zone-name" {
   description = "The name of the hosted zone where the record will be added to point the `hosting-domain` to the Load Balancer, e.g. quail.click."
 }
 
+variable "provision-timeout" {
+  type        = number
+  description = "The numer of seconds the provision time machine will wait for an instance to be ready before giving up."
+}
+
 variable "cfn_data_bucket" {
   type        = string
   description = "The name of the bucket containing cfn templates and user data scripts."
