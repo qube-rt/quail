@@ -48,16 +48,16 @@ data "aws_iam_policy_document" "private_api" {
 
   # Permissions to assume roles in remote accounts. Only created if remote-accounts is set.
   dynamic "statement" {
-   for_each = length(var.remote-accounts) > 0 ? [1] : []
-   content {
-     effect = "Allow"
-     actions = [
-       "sts:AssumeRole",
-     ]
-     resources = [
-       for account_id in var.remote-accounts : "arn:aws:iam::${account_id}:role/${var.cross-account-role-name}"
-     ]
-   }
+    for_each = length(var.remote-accounts) > 0 ? [1] : []
+    content {
+      effect = "Allow"
+      actions = [
+        "sts:AssumeRole",
+      ]
+      resources = [
+        for account_id in var.remote-accounts : "arn:aws:iam::${account_id}:role/${var.cross-account-role-name}"
+      ]
+    }
   }
 
   # S3 permissions

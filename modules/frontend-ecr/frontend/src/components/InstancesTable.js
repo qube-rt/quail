@@ -139,10 +139,12 @@ export default function InstancesTable(props) {
       ),
     },
     { field: 'operatingSystemName', headerName: 'Operating System', width: 150 },
-    { field: 'private_ip', headerName: 'IP' },
+    {
+      field: 'private_ip', headerName: 'IP', width: 130,
+    },
     { field: 'instanceName', headerName: 'Name' },
     {
-      field: 'state', headerName: 'Status', renderCell: ({ value }) => (['stopped', 'running'].includes(value) ? value : <CircularProgress />),
+      field: 'state', headerName: 'Status', renderCell: ({ value }) => (['stopped', 'running'].includes(value) ? value : <CircularProgress />), width: 80,
     },
     {
       field: 'expiry', headerName: 'Expires At', minWidth: 150, valueFormatter: ({ value: expiry }) => formatDate(expiry),

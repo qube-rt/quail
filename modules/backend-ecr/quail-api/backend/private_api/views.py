@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask import request, current_app
 
-from backend.email_utils import send_email
+from backend.email_utils import send_email, format_expiry
 
 
 def get_tags(environment, tag_config):
@@ -85,7 +85,7 @@ def post_notify_success():
             "instance_type": instance_data["instanceType"],
             "instance_name": instance_data["instanceName"],
             "ip": instance_data["private_ip"],
-            "expiry": datetime.fromisoformat(stack_set["expiry"]).strftime("%-I %p %d %B"),
+            "expiry": format_expiry(datetime.fromisoformat(stack_set["expiry"])),
         }
         current_app.logger.info("template data: %s", template_data)
 
@@ -243,7 +243,7 @@ def post_cleanup_schedule():
                         "os": instance_data["operatingSystemName"],
                         "instance_type": instance_data["instanceType"],
                         "ip": instance_data["private_ip"],
-                        "expiry": expiry.strftime("%-I %p %d %B"),
+                        "expiry": format_expiry(expiry),
                     }
 
                     response = send_email(

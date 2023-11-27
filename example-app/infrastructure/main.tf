@@ -207,11 +207,12 @@ module "backend" {
 
   # ECR image URIs
   private-api-image-uri = var.private-api-image-uri
-  public-api-image-uri = var.public-api-image-uri
+  public-api-image-uri  = var.public-api-image-uri
 
   # Other
   support-localhost-urls        = var.support-localhost-urls
   cfn_data_bucket               = aws_s3_bucket.cfn_data_bucket.bucket
+  provision-timeout             = var.provision-timeout
   cross-account-role-name       = local.cross-account-role-name
   stack-set-execution-role-name = local.stack-set-execution-role-name
   remote-accounts               = [data.aws_caller_identity.second.account_id]
@@ -219,7 +220,7 @@ module "backend" {
 
 module "frontend-ecs-hosting" {
   source = "../../modules/frontend-ecs-hosting"
-  count = var.skip-resources-first-deployment ? 0 : 1
+  count  = var.skip-resources-first-deployment ? 0 : 1
 
   # Project definition vars
   project-name    = var.project-name
