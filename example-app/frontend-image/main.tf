@@ -12,9 +12,9 @@ module "frontend-image" {
   resource-tags = var.resource-tags
 
   # Application config
-  api-root-url = var.api-root-url
+  api-root-url        = var.api-root-url
   account-name-labels = var.account-name-labels
-  group-name-labels = var.group-name-labels
+  group-name-labels   = var.group-name-labels
 
   # Okta Auth config
   jwt-issuer    = var.auth_server_issuer
