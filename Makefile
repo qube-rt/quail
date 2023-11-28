@@ -13,6 +13,9 @@ fmt:
 	cd modules/frontend-ecs-hosting && terraform fmt
 	cd modules/utilities-account && terraform fmt
 	cd modules/utilities-regional && terraform fmt
+	cd example-app/infrastructure && terraform fmt
+	cd example-app/backend-image && terraform fmt
+	cd example-app/frontend-image && terraform fmt
 
 backend-lint:
 	cd modules/backend-ecr/quail-api/ && black .
