@@ -181,4 +181,5 @@ def configure_aws_utils(app):
         cfn_data_bucket=app.config["CFN_DATA_BUCKET"],
         execution_role_name=app.config["STACK_SET_EXECUTION_ROLE_NAME"],
         admin_role_arn=app.config["STACK_SET_ADMIN_ROLE_ARN"],
+        logger=app.logger,
     )
