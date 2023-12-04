@@ -35,13 +35,11 @@ const InstanceForm = (props) => {
   const classes = useStyles();
   const {
     is_superuser,
-    accounts,
-    regions,
+    regionMap,
     selectedRegion,
     selectedAccount,
-    instanceTypes,
     selectedInstanceType,
-    operatingSystems,
+    instanceTypes,
     selectedOperatingSystem,
     expiry,
     maxExpiry,
@@ -57,6 +55,11 @@ const InstanceForm = (props) => {
     formErrors,
     provisionLoading,
   } = props;
+
+  const accounts = regionMap ? Object.keys(regionMap) : [];
+  const regions = regionMap && selectedAccount ? Object.keys(regionMap[selectedAccount]) : [];
+  const operatingSystems = regionMap && selectedAccount && selectedRegion
+    ? regionMap[selectedAccount][selectedRegion] : [];
 
   const [open, setOpen] = useState(false);
 
