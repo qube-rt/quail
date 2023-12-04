@@ -19,10 +19,7 @@ import {
 const defaultPermissions = {
   regionMap: undefined,
 
-  regions: [],
-  accounts: [],
   instanceTypes: [],
-  operatingSystems: [],
   maxExpiry: undefined,
 };
 
@@ -151,8 +148,6 @@ const Dashboard = () => {
               instanceType: instance_types[0],
               operatingSystems: region_map[selectedAccount][selectedRegion],
               operatingSystem: region_map[selectedAccount][selectedRegion][0],
-              accounts,
-              regions,
               maxExpiry,
             }];
           }),
@@ -343,7 +338,6 @@ const Dashboard = () => {
       const selectedRegion = regions[0];
       const operatingSystems = groupPermissions.regionMap[targetAccount][selectedRegion];
       changes = {
-        regions,
         selectedRegion,
         operatingSystems,
         operatingSystem: operatingSystems[0],
@@ -490,13 +484,11 @@ const Dashboard = () => {
         <Typography variant="h5" mb={3}>Provision a new instance</Typography>
         <InstanceForm
           is_superuser={is_superuser}
-          accounts={groupPermissions.accounts}
-          regions={groupPermissions.regions}
+          regionMap={groupPermissions.regionMap}
           selectedRegion={selectedRegion}
           selectedAccount={selectedAccount}
-          instanceTypes={groupPermissions.instanceTypes}
           selectedInstanceType={instanceType}
-          operatingSystems={groupPermissions.operatingSystems}
+          instanceTypes={groupPermissions.instanceTypes}
           selectedOperatingSystem={operatingSystem}
           expiry={expiry}
           maxExpiry={groupPermissions.maxExpiry}
