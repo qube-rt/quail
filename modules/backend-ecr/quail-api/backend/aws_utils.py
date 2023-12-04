@@ -1,16 +1,13 @@
 from uuid import uuid4
 import json
-import logging
 import random
 from collections import defaultdict
+from datetime import timezone
 
 import boto3
 
 from backend.exceptions import PermissionsMissing, StackSetExecutionInProgressException
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
+from backend.utils import ExpiringDict
 
 # StackSet operations incomplete statuses
 # All listed under https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackSetOperationSummary.html
@@ -48,6 +45,7 @@ class AwsUtils:
         cfn_data_bucket,
         execution_role_name,
         admin_role_arn,
+        logger,
     ):
         self.permissions_table_name = permissions_table_name
         self.regional_data_table_name = regional_data_table_name
@@ -62,6 +60,10 @@ class AwsUtils:
         self.cfn_data_bucket = cfn_data_bucket
         self.execution_role_name = execution_role_name
         self.admin_role_arn = admin_role_arn
+
+        self.logger = logger
+
+        self.cache = ExpiringDict()
 
     def get_claims_list(self, value):
         # Accepts a string representation of a list, returns a python list
@@ -111,7 +113,7 @@ class AwsUtils:
         fetched = client.get_item(TableName=self.permissions_table_name, Key={"group": {"S": group_name}})
 
         if "Item" not in fetched:
-            logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
+            self.logger.info(f"The group '{group_name}' does not have any permissions associated with it.")
             return result
 
         item = fetched["Item"]
@@ -258,7 +260,7 @@ class AwsUtils:
 
         return [self.serialize_state_table_row(item) for item in results["Items"]]
 
-    def assume_remote_role(self, account_id):
+    def create_remote_role_session(self, account_id):
         sts_client = boto3.client("sts")
         response = sts_client.assume_role(
             RoleArn=f"arn:aws:iam::{account_id}:role/{self.cross_account_role_name}",
@@ -269,10 +271,26 @@ class AwsUtils:
             aws_secret_access_key=response["Credentials"]["SecretAccessKey"],
             aws_session_token=response["Credentials"]["SessionToken"],
         )
-        return remote_account_boto3
+        expiration = response["Credentials"]["Expiration"].astimezone(timezone.utc)
+        return remote_account_boto3, expiration
+
+    def get_remote_client(self, account_id, region, service):
+        remote_session, expiration = self.cache.get(account_id)
+        if not remote_session:
+            remote_session, expiration = self.create_remote_role_session(account_id)
+            self.cache.put(account_id, remote_session, expiration)
+
+        client_key = f"{account_id}_{region}_{service}"
+        remote_client, _ = self.cache.get(client_key)
+        if not remote_client:
+            remote_client = remote_session.client(service, region_name=region)
+            self.cache.put(client_key, remote_client, expiration)
+
+        return remote_client
 
     def fetch_stackset_instances(self, stackset_id, acceptable_statuses=INSTANCES_STACK_STATUSES):
         client = boto3.client("cloudformation")
+
         stack_instances = client.list_stack_instances(StackSetName=stackset_id)
 
         for instance in stack_instances["Summaries"]:
@@ -285,9 +303,9 @@ class AwsUtils:
                 # if this is called between creating the stackset and the stack instance being created
                 continue
 
-            remote_account_boto3 = self.assume_remote_role(account_id=account_id)
-            stack_client = remote_account_boto3.client("cloudformation", region_name=region)
+            stack_client = self.get_remote_client(account_id=account_id, region=region, service="cloudformation")
             described_stacks = stack_client.describe_stacks(StackName=stack_id)
+
             current_stack = described_stacks["Stacks"][0]
 
             stack_status = current_stack["StackStatus"]
@@ -349,6 +367,7 @@ class AwsUtils:
                 results.append(instance_data)
 
         results = self.annotate_with_instance_state(instances=results)
+
         return results
 
     def annotate_with_instance_state(self, instances):
@@ -362,8 +381,7 @@ class AwsUtils:
         # Describe instances per region to get their current state
         state_dict = {}
         for (account_id, region), instance_ids in region_to_instances.items():
-            remote_account_boto3 = self.assume_remote_role(account_id=account_id)
-            ec2_client = remote_account_boto3.client("ec2", region_name=region)
+            ec2_client = self.get_remote_client(account_id=account_id, region=region, service="ec2")
             described_instances = ec2_client.describe_instances(InstanceIds=instance_ids)
 
             for instance in described_instances.get("Reservations", []):
@@ -431,13 +449,11 @@ class AwsUtils:
         )
 
     def stop_instance(self, account_id, region_name, instance_id):
-        remote_boto3 = self.assume_remote_role(account_id=account_id)
-        client = remote_boto3.client("ec2", region_name=region_name)
+        client = self.get_remote_client(account_id=account_id, region=region_name, service="ec2")
         client.stop_instances(InstanceIds=[instance_id])
 
     def start_instance(self, account_id, region_name, instance_id):
-        remote_boto3 = self.assume_remote_role(account_id=account_id)
-        client = remote_boto3.client("ec2", region_name=region_name)
+        client = self.get_remote_client(account_id=account_id, region=region_name, service="ec2")
         client.start_instances(InstanceIds=[instance_id])
 
     def update_instance_expiry(self, stackset_id, expiry, extension_count):

@@ -47,7 +47,7 @@ locals {
               us-east-1 = {
                 security-group        = module.utilities-regional-secondary.security-group-id,
                 instance-profile-name = module.utilities-account-first.instance-profile-name,
-                ami                   = "ami-09te47d2ba12ee1ff75"
+                ami                   = "ami-0fa1ca9559f1892ec"
               }
             }
             "815246801749" = {
