@@ -2,7 +2,6 @@ from uuid import uuid4
 import json
 import random
 from collections import defaultdict
-from datetime import timezone
 
 import boto3
 
