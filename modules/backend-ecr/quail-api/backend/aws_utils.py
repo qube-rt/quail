@@ -7,7 +7,6 @@ from datetime import timezone
 import boto3
 
 from backend.exceptions import PermissionsMissing, StackSetExecutionInProgressException
-from backend.utils import ExpiringDict
 
 # StackSet operations incomplete statuses
 # All listed under https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackSetOperationSummary.html
@@ -62,8 +61,6 @@ class AwsUtils:
         self.admin_role_arn = admin_role_arn
 
         self.logger = logger
-
-        self.cache = ExpiringDict()
 
     def get_claims_list(self, value):
         # Accepts a string representation of a list, returns a python list
@@ -271,20 +268,11 @@ class AwsUtils:
             aws_secret_access_key=response["Credentials"]["SecretAccessKey"],
             aws_session_token=response["Credentials"]["SessionToken"],
         )
-        expiration = response["Credentials"]["Expiration"].astimezone(timezone.utc)
-        return remote_account_boto3, expiration
+        return remote_account_boto3
 
     def get_remote_client(self, account_id, region, service):
-        remote_session, expiration = self.cache.get(account_id)
-        if not remote_session:
-            remote_session, expiration = self.create_remote_role_session(account_id)
-            self.cache.put(account_id, remote_session, expiration)
-
-        client_key = f"{account_id}_{region}_{service}"
-        remote_client, _ = self.cache.get(client_key)
-        if not remote_client:
-            remote_client = remote_session.client(service, region_name=region)
-            self.cache.put(client_key, remote_client, expiration)
+        remote_session = self.create_remote_role_session(account_id)
+        remote_client = remote_session.client(service, region_name=region)
 
         return remote_client
 
