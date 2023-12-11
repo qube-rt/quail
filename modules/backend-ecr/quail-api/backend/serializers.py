@@ -63,31 +63,6 @@ def instance_post_serializer(
             unknown = EXCLUDE
 
     return RequestValidator()
-    # return Schema.from_dict(
-    #     dict(
-    #         account=fields.Str(required=True, validate=OneOf(accounts)),
-    #         region=fields.Str(required=True, validate=OneOf(regions)),
-    #         instance_type=fields.Str(required=True, data_key="instanceType", validate=OneOf(instance_types)),
-    #         operating_system=fields.Str(
-    #             required=True,
-    #             data_key="operatingSystem",
-    #             validate=OneOf(operating_systems),
-    #         ),
-    #         instance_name=fields.Str(required=True, data_key="instanceName", validate=Length(max=255)),
-    #         expiry=fields.AwareDateTime(
-    #             required=True,
-    #             validate=Range(
-    #                 min=min_date,
-    #                 max=max_date,
-    #                 error=(
-    #                     f"Must be between {min_date.strftime('%Y-%m-%d %H:%M')} "
-    #                     f"and {max_date.strftime('%Y-%m-%d %H:%M')}."
-    #                 ),
-    #             ),
-    #         ),
-    #         **extra_fields,
-    #     )
-    # )(unknown=EXCLUDE)
 
 
 def instance_patch_serializer(instance_types):
@@ -96,3 +71,8 @@ def instance_patch_serializer(instance_types):
             instance_type=fields.Str(required=True, data_key="instanceType", validate=OneOf(instance_types)),
         )
     )(unknown=EXCLUDE)
+
+
+class WaitRequestValidator(Schema):
+    stackset_id = fields.Str(required=True)
+    error_if_no_operations = fields.Boolean(load_default=False)

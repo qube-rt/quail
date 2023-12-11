@@ -13,6 +13,7 @@ STACKSET_OPERATION_INCOMPLETE_STATUSES = {"QUEUED", "RUNNING", "STOPPING"}
 # Stack Instance Statuses
 # All listed under https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackInstanceSummary.html
 SYNCHRONIZED_STATUS = "CURRENT"
+FAILED_STATUS = "FAILED"
 # Stack Instance Detailed Statuses
 # All listed under https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackInstanceComprehensiveStatus.html  # noqa
 INCOMPLETE_DETAILED_STATUS = {"PENDING", "RUNNING"}
