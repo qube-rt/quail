@@ -76,3 +76,6 @@ def instance_patch_serializer(instance_types):
 class WaitRequestValidator(Schema):
     stackset_id = fields.Str(required=True)
     error_if_no_operations = fields.Boolean(load_default=False)
+
+    class Meta:
+        unknown = EXCLUDE
