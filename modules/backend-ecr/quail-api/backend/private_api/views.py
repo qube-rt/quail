@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from flask import request, current_app
 
 from backend.email_utils import send_email, format_expiry
+from backend.serializers import WaitRequestValidator
 
 
 def get_tags(environment, tag_config):
@@ -53,12 +54,13 @@ def post_provision():
 
 
 def get_wait():
-    stack_name = request.args.get("stackset_id")
     # Whether no operations should cause the function to error. It should be true when creating an instance
     # but false when waiting for delete operations to complete.
-    error_if_no_operations = request.args.get("error_if_no_operations")
+    wait_data = WaitRequestValidator().load(request.args)
 
-    current_app.aws.check_stackset_complete(stack_name=stack_name, error_if_no_operations=error_if_no_operations)
+    current_app.aws.check_stackset_complete(
+        stack_name=wait_data["stackset_id"], error_if_no_operations=wait_data["error_if_no_operations"]
+    )
 
     return {}, 204
 
@@ -155,7 +157,7 @@ def post_cleanup_start():
     owner_email = payload["stackset_email"]
 
     # Make provisions for paging of the results
-    instances = current_app.aws.fetch_stackset_instances(stackset_id=stackset_id)
+    instances = list(current_app.aws.fetch_stackset_instances(stackset_id=stackset_id, acceptable_statuses=None))
     current_app.logger.info("instances: %s", instances)
     for instance_data in instances:
         response = current_app.aws.delete_stack_instance(

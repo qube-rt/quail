@@ -163,9 +163,7 @@ def post_instance_stop(stackset_id):
 
 
 def patch_instance(stackset_id):
-    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(
-        current_app.aws.get_claims(request=request)
-    )
+    email, is_superuser = itemgetter("email", "is_superuser")(current_app.aws.get_claims(request=request))
 
     # Get body params
     payload = request.json
@@ -193,9 +191,7 @@ def patch_instance(stackset_id):
 
 
 def post_instance_extend(stackset_id):
-    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(
-        current_app.aws.get_claims(request=request)
-    )
+    email, is_superuser = itemgetter("email", "groups", "is_superuser")(current_app.aws.get_claims(request=request))
 
     # get details of the specified stackset
     stackset_data = current_app.aws.get_stackset_state_data(stackset_id=stackset_id)
