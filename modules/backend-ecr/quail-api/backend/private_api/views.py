@@ -4,7 +4,8 @@ from datetime import datetime, timedelta, timezone
 from flask import request, current_app
 
 from backend.email_utils import send_email, format_expiry
-from backend.serializers import WaitRequestValidator
+from backend.serializers import WaitRequestValidator, WaitForUpdateCompletionRequestValidator
+from backend.aws_utils import SUCCESS_DETAILED_STATUS
 
 
 def get_tags(environment, tag_config):
@@ -54,12 +55,20 @@ def post_provision():
 
 
 def get_wait():
-    # Whether no operations should cause the function to error. It should be true when creating an instance
-    # but false when waiting for delete operations to complete.
     wait_data = WaitRequestValidator().load(request.args)
 
     current_app.aws.check_stackset_complete(
-        stack_name=wait_data["stackset_id"], error_if_no_operations=wait_data["error_if_no_operations"]
+        stackset_id=wait_data["stackset_id"], error_if_no_operations=wait_data["error_if_no_operations"]
+    )
+
+    return {}, 204
+
+
+def get_wait_for_update_completion():
+    wait_data = WaitForUpdateCompletionRequestValidator().load(request.args)
+
+    current_app.aws.check_stackset_update_complete(
+        stackset_id=wait_data["stackset_id"], update_level=wait_data["update_level"]
     )
 
     return {}, 204
@@ -79,26 +88,63 @@ def post_notify_success():
     stack_set = current_app.aws.get_one_stack_set(stackset_id=stackset_id)
     current_app.logger.info("state data: %s", stack_set)
 
-    for instance_data in current_app.aws.fetch_stackset_instances(stackset_id=stackset_id):
-        template_data = {
-            "account": instance_data["account_id"],
-            "region": instance_data["region"],
-            "os": instance_data["operatingSystemName"],
-            "instance_type": instance_data["instanceType"],
-            "instance_name": instance_data["instanceName"],
-            "ip": instance_data["private_ip"],
-            "expiry": format_expiry(datetime.fromisoformat(stack_set["expiry"])),
-        }
-        current_app.logger.info("template data: %s", template_data)
+    instances = list(current_app.aws.fetch_stackset_instances(stackset_id=stackset_id))
+    instance_data = instances[0]
+    current_app.logger.info("instance data: %s", instance_data)
 
-        response = send_email(
-            subject="Compute instance provisioned successfully",
-            template_name="provision_success",
-            template_data=template_data,
-            source_email=f"Instance Provisioning ({project_name}) <{notification_email}>",
-            to_email=stackset_email,
-        )
-        current_app.logger.info("send mail response : %s", response)
+    current_app.aws.update_stack_set_state_entry(
+        stackset_id=stackset_id,
+        data=[
+            {"field_name": "privateIp", "value": instance_data["private_ip"]},
+            {"field_name": "stackStatus", "value": SUCCESS_DETAILED_STATUS},
+            {"field_name": "instanceStatus", "value": "running"},
+        ],
+    )
+
+    template_data = {
+        "account": instance_data["account_id"],
+        "region": instance_data["region"],
+        "os": instance_data["operatingSystemName"],
+        "instance_type": instance_data["instanceType"],
+        "instance_name": instance_data["instanceName"],
+        "ip": instance_data["private_ip"],
+        "expiry": format_expiry(datetime.fromisoformat(stack_set["expiry"])),
+    }
+    current_app.logger.info("template data: %s", template_data)
+
+    response = send_email(
+        subject="Compute instance provisioned successfully",
+        template_name="provision_success",
+        template_data=template_data,
+        source_email=f"Instance Provisioning ({project_name}) <{notification_email}>",
+        to_email=stackset_email,
+    )
+    current_app.logger.info("send mail response : %s", response)
+
+    return {}, 204
+
+
+def post_update_complete():
+    # read in data passed to the lambda call
+    payload = request.json
+    stackset_id = payload["stackset_id"]
+
+    # Get config from dynamodb
+    stackset = current_app.aws.get_one_stack_set(stackset_id=stackset_id)
+    current_app.logger.info("state data: %s", stackset)
+
+    instances = current_app.aws.get_instance_details(stacksets=[stackset])
+    instance_data = instances[0]
+    current_app.logger.info("instance data: %s", instance_data)
+
+    current_app.aws.update_stack_set_state_entry(
+        stackset_id=stackset_id,
+        data=[
+            {"field_name": "instanceType", "value": instance_data["instanceType"]},
+            {"field_name": "instanceStatus", "value": instance_data["state"]},
+            {"field_name": "stackStatus", "value": SUCCESS_DETAILED_STATUS},
+        ],
+    )
 
     return {}, 204
 
@@ -142,6 +188,50 @@ def post_notify_failure():
             owner_email=stackset_email,
         )
         current_app.logger.info(f"SFN cleanup execution response: {response}")
+
+    return {}, 204
+
+
+def post_update_failure():
+    # read in data from environment
+    # project_name = current_app.config["PROJECT_NAME"]
+    # notification_email = current_app.config["NOTIFICATION_EMAIL"]
+    # admin_email = current_app.config["ADMIN_EMAIL"]
+
+    # read in data passed to the lambda call
+    payload = request.json
+    stackset_id = payload["stackset_id"]
+
+    # send SNS failure notification
+    current_app.aws.send_error_sns_message(stackset_id=stackset_id)
+
+    current_app.logger.info("Update failed")
+
+    # for instance_data in current_app.aws.fetch_stackset_instances(stackset_id=stackset_id, acceptable_statuses=None):
+    #     template_data = {
+    #         "account": instance_data["account_id"],
+    #         "region": instance_data["region"],
+    #         "os": instance_data["operatingSystemName"],
+    #         "instance_type": instance_data["instanceType"],
+    #         "instance_name": instance_data["instanceName"],
+    #     }
+
+    #     response = send_email(
+    #         subject="Error provisioning compute instances",
+    #         template_name="provision_failure",
+    #         template_data=template_data,
+    #         source_email=f"Instance Provisioning ({project_name}) <{notification_email}>",
+    #         to_email=stackset_email,
+    #         cc_email=admin_email,
+    #     )
+    #     current_app.logger.info(response)
+
+    #     current_app.logger.info(f"Stackset {stackset_id} is due for cleanup, passing it to the cleanup state machine")
+    #     current_app.aws.initiate_stackset_deprovisioning(
+    #         stackset_id=stackset_id,
+    #         owner_email=stackset_email,
+    #     )
+    #     current_app.logger.info(f"SFN cleanup execution response: {response}")
 
     return {}, 204
 

@@ -234,6 +234,14 @@ def delete_instances(stackset_id):
             "headers": {"Content-Type": "application/json"},
         }
 
+    current_app.aws.update_stack_set_state_entry(
+        stackset_id=stackset_id,
+        data=[
+            {"field_name": "stackStatus", "value": "deleting"},
+            {"field_name": "instanceStatus", "value": "shutting-down"},
+        ],
+    )
+
     # Deprovision stackset
     owner_email = stackset_data["email"]
     response = current_app.aws.initiate_stackset_deprovisioning(

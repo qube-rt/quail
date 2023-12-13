@@ -131,7 +131,8 @@ data "aws_iam_policy_document" "public_api" {
     ]
     resources = [
       aws_sfn_state_machine.provision_state_machine.arn,
-      aws_sfn_state_machine.cleanup_state_machine.arn
+      aws_sfn_state_machine.cleanup_state_machine.arn,
+      aws_sfn_state_machine.update_state_machine.arn
     ]
   }
 }
@@ -167,6 +168,7 @@ resource "aws_lambda_function" "public_api" {
 
       "PROVISION_SFN_ARN"       = aws_sfn_state_machine.provision_state_machine.arn
       "CLEANUP_SFN_ARN"         = aws_sfn_state_machine.cleanup_state_machine.arn
+      "UPDATE_SFN_ARN"          = aws_sfn_state_machine.update_state_machine.arn
       "CROSS_ACCOUNT_ROLE_NAME" = var.cross-account-role-name
       "CFN_DATA_BUCKET"         = var.cfn_data_bucket
 

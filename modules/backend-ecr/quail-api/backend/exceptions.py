@@ -21,7 +21,7 @@ class PermissionsMissing(BaseQuailException):
 
 
 class UnauthorizedForInstanceError(BaseQuailException):
-    status_code = 400
+    status_code = 403
     message = "You're not authorized to modify this instance."
 
 
@@ -41,3 +41,12 @@ class StackSetCreationException(BaseQuailException):
 class StackSetExecutionInProgressException(BaseQuailException):
     status_code = 415
     message = "Try again later."
+
+
+class StackSetUpdateInProgressException(BaseQuailException):
+    status_code = 415
+    message = "Try again later."
+
+
+class InvalidApplicationState(BaseQuailException):
+    pass

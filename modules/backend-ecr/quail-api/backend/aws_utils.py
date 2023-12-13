@@ -1,14 +1,21 @@
 from uuid import uuid4
+from enum import Enum
 import json
 import random
 from collections import defaultdict
 
 import boto3
 
-from backend.exceptions import PermissionsMissing, StackSetExecutionInProgressException
+from backend.exceptions import (
+    PermissionsMissing,
+    StackSetExecutionInProgressException,
+    StackSetUpdateInProgressException,
+    InvalidApplicationState,
+)
 
 # StackSet operations incomplete statuses
 # All listed under https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackSetOperationSummary.html
+STACKSET_UPDATING_STATUS = "RUNNING"
 STACKSET_OPERATION_INCOMPLETE_STATUSES = {"QUEUED", "RUNNING", "STOPPING"}
 # Stack Instance Statuses
 # All listed under https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackInstanceSummary.html
@@ -16,6 +23,7 @@ SYNCHRONIZED_STATUS = "CURRENT"
 FAILED_STATUS = "FAILED"
 # Stack Instance Detailed Statuses
 # All listed under https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackInstanceComprehensiveStatus.html  # noqa
+STACK_INSTANCE_PENDING_STATUS = "PENDING"
 INCOMPLETE_DETAILED_STATUS = {"PENDING", "RUNNING"}
 # Stack Instance Detailed Statuses
 # All listed under https://docs.aws.amazon.com/AWSCloudFormation/latest/APIReference/API_StackInstanceComprehensiveStatus.html  # noqa
@@ -29,6 +37,14 @@ INSTANCES_STACK_STATUSES = {
     "UPDATE_COMPLETE",
 }
 
+EC2_INSTANCE_PENDING_STATE = "pending"
+EC2_INSTANCE_FINAL_STATES = {"running", "stopped"}
+
+
+class UpdateLevel(Enum):
+    STACKSET_LEVEL = "stack_set"
+    INSTANCE_LEVEL = "instance"
+
 
 class AwsUtils:
     def __init__(
@@ -39,6 +55,7 @@ class AwsUtils:
         cross_account_role_name,
         admin_group_name,
         provision_sfn_arn,
+        update_sfn_arn,
         error_topic_arn,
         cleanup_sfn_arn,
         cfn_data_bucket,
@@ -52,6 +69,7 @@ class AwsUtils:
 
         self.cleanup_sfn_arn = cleanup_sfn_arn
         self.provision_sfn_arn = provision_sfn_arn
+        self.update_sfn_arn = update_sfn_arn
 
         self.admin_group_name = admin_group_name
         self.error_topic_arn = error_topic_arn
@@ -205,6 +223,13 @@ class AwsUtils:
         )
         return response["executionArn"]
 
+    def monitor_update(self, stackset_id, update_level):
+        sfn_client = boto3.client("stepfunctions")
+        sfn_client.start_execution(
+            stateMachineArn=self.update_sfn_arn,
+            input=json.dumps({"stackset_id": stackset_id, "update_level": update_level.value}),
+        )
+
     def send_error_sns_message(self, stackset_id):
         sns_client = boto3.client("sns")
         sns_client.publish(
@@ -217,6 +242,9 @@ class AwsUtils:
         )
 
     def serialize_state_table_row(self, item):
+        def nullable_get(item, key):
+            return item[key]["S"] if key in item else None
+
         return {
             "stackset_id": item["stacksetID"]["S"],
             "expiry": item["expiry"]["S"],
@@ -224,6 +252,15 @@ class AwsUtils:
             "username": item["username"]["S"],
             "email": item["email"]["S"],
             "group": item["group"]["S"],
+            "account": nullable_get(item, "account"),
+            "instanceName": nullable_get(item, "instanceName"),
+            "instanceStatus": nullable_get(item, "instanceStatus"),
+            "instanceType": nullable_get(item, "instanceType"),
+            "operatingSystem": nullable_get(item, "operatingSystem"),
+            "privateIp": nullable_get(item, "privateIp"),
+            "region": nullable_get(item, "region"),
+            "stackStatus": nullable_get(item, "stackStatus"),
+            "connectionProtocol": nullable_get(item, "connectionProtocol"),
         }
 
     def get_all_stack_sets(self):
@@ -240,6 +277,34 @@ class AwsUtils:
             "Item"
         ]
         return self.serialize_state_table_row(state_data)
+
+    def update_stack_set_state_entry(self, stackset_id, data):
+        # Data: list of dicts with "field_name" and "value"
+        dynamodb_client = boto3.client("dynamodb")
+
+        # from https://stackoverflow.com/a/62030403
+        update_expression_list = ["set "]
+        update_values = dict()
+
+        for entry in data:
+            field_name = entry["field_name"]
+            value = entry["value"]
+            update_expression_list.append(f" {field_name} = :{field_name},")
+            update_values[f":{field_name}"] = {"S": value}
+
+        # Remove the trailing comma
+        update_expression = "".join(update_expression_list)[:-1]
+
+        updated_entry = dynamodb_client.update_item(
+            TableName=self.state_table_name,
+            Key={"stacksetID": {"S": stackset_id}},
+            UpdateExpression=update_expression,
+            ExpressionAttributeValues=update_values,
+            ReturnValues="ALL_NEW",
+        )
+
+        self.logger.info(f"{updated_entry=}")
+        return self.serialize_state_table_row(updated_entry["Attributes"])
 
     def get_owned_stacksets(self, email, is_superuser=False):
         client = boto3.client("dynamodb")
@@ -275,6 +340,10 @@ class AwsUtils:
         remote_client = remote_session.client(service, region_name=region)
 
         return remote_client
+
+    def parse_stack_outputs(self, original_outputs):
+        # Stack outputs are a list of dicts, convert to a mapping dict
+        return {x["OutputKey"]: x["OutputValue"] for x in original_outputs}
 
     def fetch_stackset_instances(self, stackset_id, acceptable_statuses=INSTANCES_STACK_STATUSES):
         client = boto3.client("cloudformation")
@@ -318,8 +387,7 @@ class AwsUtils:
                 instance["Status"] == SYNCHRONIZED_STATUS
                 and instance["StackInstanceStatus"]["DetailedStatus"] not in INCOMPLETE_DETAILED_STATUS
             ):
-                current_outputs = current_stack["Outputs"]
-                output_dict = {x["OutputKey"]: x["OutputValue"] for x in current_outputs}
+                output_dict = self.parse_stack_outputs(current_stack["Outputs"])
 
                 current_result = {
                     **current_result,
@@ -410,11 +478,21 @@ class AwsUtils:
         )
         return response
 
+    def mark_stackset_as_updating(self, stackset_id):
+        return self.update_stack_set_state_entry(
+            stackset_id=stackset_id,
+            data=[
+                {"field_name": "instanceStatus", "value": EC2_INSTANCE_PENDING_STATE},
+                {"field_name": "stackStatus", "value": STACK_INSTANCE_PENDING_STATUS},
+            ],
+        )
+
     def update_stackset(self, stackset_id, **kwargs):
-        client = boto3.client("cloudformation")
+        cf_client = boto3.client("cloudformation")
+        self.logger.info(f"{stackset_id=}, {kwargs=}")
 
         # Get current parameters and override the ones provided
-        current_stackset = client.describe_stack_set(StackSetName=stackset_id)["StackSet"]
+        current_stackset = cf_client.describe_stack_set(StackSetName=stackset_id)["StackSet"]
         current_params = current_stackset["Parameters"]
         current_capabilities = current_stackset["Capabilities"]
         params = [
@@ -426,8 +504,10 @@ class AwsUtils:
             *[{"ParameterKey": key, "ParameterValue": value} for key, value in kwargs.items()],
         ]
 
+        self.mark_stackset_as_updating(stackset_id=stackset_id)
+
         # Update stack set
-        client.update_stack_set(
+        cf_client.update_stack_set(
             StackSetName=stackset_id,
             UsePreviousTemplate=True,
             Parameters=params,
@@ -435,6 +515,10 @@ class AwsUtils:
             AdministrationRoleARN=self.admin_role_arn,
             ExecutionRoleName=self.execution_role_name,
         )
+
+        # Kick off the SFN that will monitor the running SS and update its
+        # state entry when update completes.
+        self.monitor_update(stackset_id=stackset_id, update_level=UpdateLevel.STACKSET_LEVEL)
 
     def stop_instance(self, account_id, region_name, instance_id):
         client = self.get_remote_client(account_id=account_id, region=region_name, service="ec2")
@@ -600,15 +684,24 @@ class AwsUtils:
                 "group": {"S": group},
                 "extensionCount": {"N": "0"},
                 "expiry": {"S": expiry.isoformat()},
+                "account": {"S": account},
+                "region": {"S": region},
+                "instanceType": {"S": instance_type},
+                "operatingSystem": {"S": operating_system},
+                "privateIp": {"S": ""},
+                "stackStatus": {"S": STACKSET_UPDATING_STATUS},
+                "instanceStatus": {"S": ""},
+                "instanceName": {"S": instance_name},
+                "connectionProtocol": {"S": os_config["connection-protocol"]},
             },
         )
 
         return stackset_id
 
-    def check_stackset_complete(self, stack_name, error_if_no_operations):
+    def check_stackset_complete(self, stackset_id, error_if_no_operations):
         client = boto3.client("cloudformation")
 
-        stack_operations = client.list_stack_set_operations(StackSetName=stack_name)
+        stack_operations = client.list_stack_set_operations(StackSetName=stackset_id)
         if error_if_no_operations and not stack_operations["Summaries"]:
             # Fail if the stack operations are still not available
             raise StackSetExecutionInProgressException()
@@ -618,7 +711,7 @@ class AwsUtils:
             if operation["Status"] in STACKSET_OPERATION_INCOMPLETE_STATUSES:
                 raise StackSetExecutionInProgressException()
 
-        stack_instances = client.list_stack_instances(StackSetName=stack_name)
+        stack_instances = client.list_stack_instances(StackSetName=stackset_id)
         for instance in stack_instances["Summaries"]:
             # Stack instances are in progress of being updated
             if (
@@ -626,6 +719,61 @@ class AwsUtils:
                 or instance["StackInstanceStatus"]["DetailedStatus"] != SUCCESS_DETAILED_STATUS
             ):
                 raise StackSetExecutionInProgressException()
+
+    def check_stackset_update_complete(self, stackset_id, update_level):
+        # Update level can be: stackset (updating params) or instance (updating instance state)
+        cf_client = boto3.client("cloudformation")
+        error_if_no_operations = UpdateLevel(update_level) == UpdateLevel.STACKSET_LEVEL
+
+        stack_operations = cf_client.list_stack_set_operations(StackSetName=stackset_id)
+        if error_if_no_operations and not stack_operations["Summaries"]:
+            # Fail if the stack operations are still not available
+            raise StackSetUpdateInProgressException("StackSet operations still not available")
+
+        for operation in stack_operations["Summaries"]:
+            # The stackset operation hasn't completed
+            if operation["Status"] in STACKSET_OPERATION_INCOMPLETE_STATUSES:
+                raise StackSetUpdateInProgressException("StackSet operation still in progress")
+
+        stack_instances = cf_client.list_stack_instances(StackSetName=stackset_id)
+        if len(stack_instances["Summaries"]) != 1:
+            raise InvalidApplicationState(message="Unexpected number of stack instances")
+
+        stack_instances = stack_instances["Summaries"][0]
+        # Stack instances are in progress of being updated
+        if (
+            stack_instances["Status"] != SYNCHRONIZED_STATUS
+            or stack_instances["StackInstanceStatus"]["DetailedStatus"] != SUCCESS_DETAILED_STATUS
+        ):
+            raise StackSetUpdateInProgressException("Stack Instances is being updated")
+
+        # Check the state of the running ec2 instances
+        account_id = stack_instances["Account"]
+        region = stack_instances["Region"]
+        stack_id = stack_instances["StackId"]
+
+        stack_client = self.get_remote_client(account_id=account_id, region=region, service="cloudformation")
+        described_stacks = stack_client.describe_stacks(StackName=stack_id)
+
+        current_stack = described_stacks["Stacks"][0]
+        output_dict = self.parse_stack_outputs(current_stack["Outputs"])
+        instance_id = output_dict["InstanceID"]
+
+        ec2_client = self.get_remote_client(account_id=account_id, region=region, service="ec2")
+        described_instances = ec2_client.describe_instances(InstanceIds=[instance_id])
+
+        if (
+            len(described_instances.get("Reservations", [])) != 1
+            or len(described_instances["Reservations"][0]["Instances"]) != 1
+        ):
+            self.logger.info(f"{described_instances=}")
+            raise InvalidApplicationState(message="Unexpected number of ec2 instances")
+
+        ec2_instance = described_instances["Reservations"][0]["Instances"][0]
+        state = ec2_instance["State"]["Name"]
+
+        if state not in EC2_INSTANCE_FINAL_STATES:
+            raise StackSetUpdateInProgressException("EC2 instance is still being updated.")
 
     def delete_stack_instance(self, stackset_id, account_id, region):
         cfn_client = boto3.client("cloudformation")
