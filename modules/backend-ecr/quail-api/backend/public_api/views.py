@@ -23,17 +23,15 @@ def get_params():
 
 
 def get_instances():
-    email, groups, is_superuser = itemgetter("email", "groups", "is_superuser")(
+    email, groups, username, is_superuser = itemgetter("email", "groups", "username", "is_superuser")(
         current_app.aws.get_claims(request=request)
     )
 
     # Get config from dynamodb
-    stacksets = current_app.aws.get_owned_stacksets(email=email, is_superuser=is_superuser)
     permissions = current_app.aws.get_permissions_for_all_groups(groups=groups)
-
-    instances = current_app.aws.get_instance_details(
-        stacksets=stacksets,
-        max_extension_per_group=permissions,
+    instances = current_app.aws.get_user_stacksets(
+        username=username,
+        permissions=permissions,
         is_superuser=is_superuser,
     )
 
@@ -130,6 +128,7 @@ def post_instance_start(stackset_id):
 
     target_instance = instances[0]
     current_app.aws.start_instance(
+        stackset_id=stackset_id,
         account_id=target_instance["account_id"],
         region_name=target_instance["region"],
         instance_id=target_instance["instance_id"],
@@ -154,6 +153,7 @@ def post_instance_stop(stackset_id):
 
     target_instance = instances[0]
     current_app.aws.stop_instance(
+        stackset_id=stackset_id,
         account_id=target_instance["account_id"],
         region_name=target_instance["region"],
         instance_id=target_instance["instance_id"],
@@ -233,6 +233,13 @@ def delete_instances(stackset_id):
             "body": json.dumps({"message": "You're not authorized to modify this instance."}),
             "headers": {"Content-Type": "application/json"},
         }
+
+    current_app.aws.update_stackset_state_entry(
+        stackset_id=stackset_id,
+        data=[
+            {"field_name": "instanceStatus", "value": "shutting-down"},
+        ],
+    )
 
     # Deprovision stackset
     owner_email = stackset_data["email"]

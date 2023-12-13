@@ -75,7 +75,18 @@ def instance_patch_serializer(instance_types):
 
 class WaitRequestValidator(Schema):
     stackset_id = fields.Str(required=True)
+    # Whether no operations should cause the function to error. It should be true when creating an instance
+    # but false when waiting for delete operations to complete.
     error_if_no_operations = fields.Boolean(load_default=False)
+
+    class Meta:
+        unknown = EXCLUDE
+
+
+class WaitForUpdateCompletionRequestValidator(Schema):
+    stackset_id = fields.Str(required=True)
+    update_level = fields.Str(required=True)
+    operation_id = fields.Str(required=False, allow_none=True)
 
     class Meta:
         unknown = EXCLUDE

@@ -78,7 +78,7 @@ export default function InstancesTable(props) {
   }
 
   const handleConnectClick = (instance) => {
-    if (instance.connectionProtocol === 'ssh') {
+    if (instance.connection_protocol === 'ssh') {
       copySSHCommandToClipboard(instance.private_ip);
     } else {
       downloadRDPFile(instance.private_ip);
@@ -106,7 +106,7 @@ export default function InstancesTable(props) {
   const columns = [
     ...(is_superuser ? [{ field: 'username', headerName: 'Owner' }] : []),
     {
-      field: 'account_id',
+      field: 'account',
       headerName: 'Account',
       valueFormatter: ({ value: account_id }) => getLabel('accountLabels', account_id),
     },
@@ -123,7 +123,7 @@ export default function InstancesTable(props) {
       valueFormatter: ({ value: group }) => getLabel('groupLabels', group),
     },
     {
-      field: 'instanceType',
+      field: 'instance_type',
       headerName: 'Instance Type',
       minWidth: 220,
       flex: 1,
@@ -133,18 +133,18 @@ export default function InstancesTable(props) {
           values={instanceTypesPerGroup[instance.group].instanceTypes}
           valueLabels={Config.instanceLabels}
           selected={value}
-          disabled={instance.state !== 'running' && instance.state !== 'stopped'}
+          disabled={instance.instance_status !== 'running' && instance.instance_status !== 'stopped'}
           onFieldChange={(event) => handleClickOpen(instance, event.target.value)}
         />
       ),
     },
-    { field: 'operatingSystemName', headerName: 'Operating System', width: 150 },
+    { field: 'operating_system', headerName: 'Operating System', width: 150 },
     {
       field: 'private_ip', headerName: 'IP', width: 130,
     },
-    { field: 'instanceName', headerName: 'Name' },
+    { field: 'instance_name', headerName: 'Name' },
     {
-      field: 'state', headerName: 'Status', renderCell: ({ value }) => (['stopped', 'running'].includes(value) ? value : <CircularProgress />), width: 80,
+      field: 'instance_status', headerName: 'Status', renderCell: ({ value }) => (['stopped', 'running'].includes(value) ? value : <CircularProgress />), width: 80,
     },
     {
       field: 'expiry', headerName: 'Expires At', minWidth: 150, valueFormatter: ({ value: expiry }) => formatDate(expiry),
@@ -155,7 +155,7 @@ export default function InstancesTable(props) {
       minWidth: 160,
       flex: 0.6,
       getActions: ({ row }) => [
-        ...(row.state === 'running' ? [
+        ...(row.instance_status === 'running' ? [
           <GridActionsCellItemWrapper
             icon={<CloudUploadIcon />}
             label="Connect"
@@ -169,7 +169,7 @@ export default function InstancesTable(props) {
             disabled={!!row.handlingStop}
             onClick={() => onStopClick(row)}
           />] : []),
-        ...(row.state === 'stopped' ? [
+        ...(row.instance_status === 'stopped' ? [
           <GridActionsCellItemWrapper
             icon={<PlayCircleOutlineIcon />}
             label="Start"
@@ -177,7 +177,7 @@ export default function InstancesTable(props) {
             disabled={!!row.handlingStart}
             onClick={() => onStartClick(row)}
           />] : []),
-        ...(['stopped', 'running'].includes(row.state) ? [
+        ...(['stopped', 'running'].includes(row.instance_status) ? [
           <GridActionsCellItemWrapper
             icon={<SnoozeIcon />}
             label="Extend"

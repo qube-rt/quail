@@ -9,6 +9,11 @@ data "aws_sfn_state_machine" "provision_sfn" {
   name  = local.provision_sfn_name
 }
 
+data "aws_sfn_state_machine" "update_sfn" {
+  count = var.skip-resources-first-deployment ? 0 : 1
+  name  = local.update_sfn_name
+}
+
 # CloudWatch log group
 resource "aws_cloudwatch_log_group" "private_api" {
   name              = "/aws/lambda/${local.ecr_private_api_name}"
@@ -84,6 +89,7 @@ data "aws_iam_policy_document" "private_api" {
     actions = [
       "cloudformation:ListStackInstances",
       "cloudformation:ListStackSetOperations",
+      "cloudformation:DescribeStackSetOperation",
       "cloudformation:DeleteStackInstances",
     ]
     resources = [
@@ -137,7 +143,9 @@ data "aws_iam_policy_document" "private_api" {
     actions = [
       "dynamodb:PutItem",
       "dynamodb:GetItem",
-      "dynamodb:DeleteItem", "dynamodb:Scan"
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:Scan"
     ]
     resources = [aws_dynamodb_table.dynamodb-state-table.arn]
   }
@@ -177,6 +185,20 @@ data "aws_iam_policy_document" "private_api" {
         "states:SendTaskFailure",
       ]
       resources = [data.aws_sfn_state_machine.provision_sfn[0].arn]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = data.aws_sfn_state_machine.update_sfn
+
+    content {
+      effect = "Allow"
+      actions = [
+        "states:StartExecution",
+        "states:SendTaskSuccess",
+        "states:SendTaskFailure",
+      ]
+      resources = [data.aws_sfn_state_machine.update_sfn[0].arn]
     }
   }
 
@@ -236,6 +258,10 @@ resource "aws_lambda_function" "private_api" {
       "CLEANUP_SFN_ARN" = (var.skip-resources-first-deployment ?
         "Unset skip-resources-first-deployment to fix this." :
         data.aws_sfn_state_machine.cleanup_sfn[0].arn
+      )
+      "UPDATE_SFN_ARN" = (var.skip-resources-first-deployment ?
+        "Unset skip-resources-first-deployment to fix this." :
+        data.aws_sfn_state_machine.update_sfn[0].arn
       )
       "CROSS_ACCOUNT_ROLE_NAME" = var.cross-account-role-name
       "CFN_DATA_BUCKET"         = var.cfn_data_bucket

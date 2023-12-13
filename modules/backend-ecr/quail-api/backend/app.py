@@ -177,6 +177,7 @@ def configure_aws_utils(app):
         admin_group_name=app.config["ADMIN_GROUP_NAME"],
         provision_sfn_arn=app.config["PROVISION_SFN_ARN"],
         cleanup_sfn_arn=app.config["CLEANUP_SFN_ARN"],
+        update_sfn_arn=app.config["UPDATE_SFN_ARN"],
         error_topic_arn=app.config["SNS_ERROR_TOPIC_ARN"],
         cfn_data_bucket=app.config["CFN_DATA_BUCKET"],
         execution_role_name=app.config["STACK_SET_EXECUTION_ROLE_NAME"],
