@@ -266,13 +266,36 @@ class AwsUtils:
             "connectionProtocol": nullable_get(item, "connectionProtocol"),
         }
 
-    def get_all_stack_sets(self):
+    def get_all_stacksets(self):
         dynamodb_client = boto3.client("dynamodb")
         results = dynamodb_client.scan(
             TableName=self.state_table_name,
         )
 
         return [self.serialize_state_table_row(item) for item in results["Items"]]
+
+    def get_user_stacksets(self, username, permissions, is_superuser):
+        dynamodb_client = boto3.client("dynamodb")
+        results = dynamodb_client.scan(
+            TableName=self.state_table_name,
+        )
+
+        results = [self.serialize_state_table_row(item) for item in results["Items"]]
+
+        filtered_results = [entry for entry in results if is_superuser or entry["username"] == username]
+
+        # annotate stacksets with permission details
+        for instance_data in filtered_results:
+            group = instance_data["group"]
+            extension_count = instance_data["extension_count"]
+
+            max_extension_count = permissions.get(group, {}).get("max_extension_count", None)
+            if is_superuser:
+                instance_data["can_extend"] = True
+            elif max_extension_count is not None:
+                instance_data["can_extend"] = extension_count < max_extension_count
+
+        return filtered_results
 
     def get_one_stack_set(self, stackset_id):
         dynamodb_client = boto3.client("dynamodb")
@@ -399,7 +422,7 @@ class AwsUtils:
 
             yield current_result
 
-    def get_instance_details(self, stacksets, max_extension_per_group=dict(), is_superuser=False):
+    def get_instance_details(self, stacksets, permissions=dict(), is_superuser=False):
         results = []
 
         for stackset in stacksets:
@@ -416,7 +439,7 @@ class AwsUtils:
                 instance_data["email"] = stack_email
                 instance_data["group"] = group
 
-                max_extension_count = max_extension_per_group.get(group, {}).get("max_extension_count", None)
+                max_extension_count = permissions.get(group, {}).get("max_extension_count", None)
                 if is_superuser:
                     instance_data["can_extend"] = True
                 elif max_extension_count is not None:

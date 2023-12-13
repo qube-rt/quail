@@ -296,7 +296,7 @@ def post_cleanup_schedule():
     notification_email = current_app.config["NOTIFICATION_EMAIL"]
     cleanup_notice_notification_hours = json.loads(current_app.config["CLEANUP_NOTICE_NOTIFICATION_HOURS"])
 
-    stack_sets = current_app.aws.get_all_stack_sets()
+    stack_sets = current_app.aws.get_all_stacksets()
     current_app.logger.debug("Current state data: %s", stack_sets)
 
     # Make provisions for paging of the results
@@ -354,7 +354,7 @@ def post_migrate_data():
     import boto3  # noqa
 
     # Get all state data
-    stacksets = current_app.aws.get_all_stack_sets()
+    stacksets = current_app.aws.get_all_stacksets()
 
     # Find data that's incomplete
     stacksets = [entry for entry in stacksets if entry["account"] is None]
