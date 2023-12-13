@@ -224,6 +224,9 @@ class AwsUtils:
         return response["executionArn"]
 
     def monitor_update(self, stackset_id, update_level):
+        # Kick off the SFN that will monitor the running SS and update its
+        # state entry when update completes.
+
         sfn_client = boto3.client("stepfunctions")
         sfn_client.start_execution(
             stateMachineArn=self.update_sfn_arn,
@@ -516,17 +519,23 @@ class AwsUtils:
             ExecutionRoleName=self.execution_role_name,
         )
 
-        # Kick off the SFN that will monitor the running SS and update its
-        # state entry when update completes.
         self.monitor_update(stackset_id=stackset_id, update_level=UpdateLevel.STACKSET_LEVEL)
 
-    def stop_instance(self, account_id, region_name, instance_id):
+    def stop_instance(self, stackset_id, account_id, region_name, instance_id):
+        self.mark_stackset_as_updating(stackset_id=stackset_id)
+
         client = self.get_remote_client(account_id=account_id, region=region_name, service="ec2")
         client.stop_instances(InstanceIds=[instance_id])
 
-    def start_instance(self, account_id, region_name, instance_id):
+        self.monitor_update(stackset_id=stackset_id, update_level=UpdateLevel.INSTANCE_LEVEL)
+
+    def start_instance(self, stackset_id, account_id, region_name, instance_id):
+        self.mark_stackset_as_updating(stackset_id=stackset_id)
+
         client = self.get_remote_client(account_id=account_id, region=region_name, service="ec2")
         client.start_instances(InstanceIds=[instance_id])
+
+        self.monitor_update(stackset_id=stackset_id, update_level=UpdateLevel.INSTANCE_LEVEL)
 
     def update_instance_expiry(self, stackset_id, expiry, extension_count):
         client = boto3.client("dynamodb")

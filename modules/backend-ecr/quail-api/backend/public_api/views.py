@@ -130,6 +130,7 @@ def post_instance_start(stackset_id):
 
     target_instance = instances[0]
     current_app.aws.start_instance(
+        stackset_id=stackset_id,
         account_id=target_instance["account_id"],
         region_name=target_instance["region"],
         instance_id=target_instance["instance_id"],
@@ -154,6 +155,7 @@ def post_instance_stop(stackset_id):
 
     target_instance = instances[0]
     current_app.aws.stop_instance(
+        stackset_id=stackset_id,
         account_id=target_instance["account_id"],
         region_name=target_instance["region"],
         instance_id=target_instance["instance_id"],
