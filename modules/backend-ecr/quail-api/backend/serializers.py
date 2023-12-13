@@ -86,6 +86,7 @@ class WaitRequestValidator(Schema):
 class WaitForUpdateCompletionRequestValidator(Schema):
     stackset_id = fields.Str(required=True)
     update_level = fields.Str(required=True)
+    operation_id = fields.Str(required=False, allow_none=True)
 
     class Meta:
         unknown = EXCLUDE

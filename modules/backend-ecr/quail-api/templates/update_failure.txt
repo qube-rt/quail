@@ -1,0 +1,9 @@
+There has been an error updating the below compute instance:
+
+* name {{instance_name}}
+* account: {{account}}
+* region: {{region}}
+* operation system: {{os}}
+* type: {{instance_type}}
+
+The admin team has been notified about the issue.

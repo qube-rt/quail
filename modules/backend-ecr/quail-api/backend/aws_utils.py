@@ -223,14 +223,16 @@ class AwsUtils:
         )
         return response["executionArn"]
 
-    def monitor_update(self, stackset_id, update_level):
+    def monitor_update(self, stackset_id, update_level, operation_id=""):
         # Kick off the SFN that will monitor the running SS and update its
         # state entry when update completes.
 
         sfn_client = boto3.client("stepfunctions")
         sfn_client.start_execution(
             stateMachineArn=self.update_sfn_arn,
-            input=json.dumps({"stackset_id": stackset_id, "update_level": update_level.value}),
+            input=json.dumps(
+                {"stackset_id": stackset_id, "update_level": update_level.value, "operation_id": operation_id}
+            ),
         )
 
     def send_error_sns_message(self, stackset_id):
@@ -256,14 +258,14 @@ class AwsUtils:
             "email": item["email"]["S"],
             "group": item["group"]["S"],
             "account": nullable_get(item, "account"),
-            "instanceName": nullable_get(item, "instanceName"),
-            "instanceStatus": nullable_get(item, "instanceStatus"),
-            "instanceType": nullable_get(item, "instanceType"),
-            "operatingSystem": nullable_get(item, "operatingSystem"),
-            "privateIp": nullable_get(item, "privateIp"),
+            "instance_name": nullable_get(item, "instanceName"),
+            "instance_status": nullable_get(item, "instanceStatus"),
+            "instance_type": nullable_get(item, "instanceType"),
+            "operating_system": nullable_get(item, "operatingSystem"),
+            "private_ip": nullable_get(item, "privateIp"),
             "region": nullable_get(item, "region"),
-            "stackStatus": nullable_get(item, "stackStatus"),
-            "connectionProtocol": nullable_get(item, "connectionProtocol"),
+            "connection_protocol": nullable_get(item, "connectionProtocol"),
+            "instance_id": nullable_get(item, "instanceId"),
         }
 
     def get_all_stacksets(self):
@@ -408,6 +410,7 @@ class AwsUtils:
                 "private_ip": None,
             }
 
+            self.logger.info(f"fetch_stackset_instances {instance=}")
             if (
                 instance["Status"] == SYNCHRONIZED_STATUS
                 and instance["StackInstanceStatus"]["DetailedStatus"] not in INCOMPLETE_DETAILED_STATUS
@@ -422,7 +425,7 @@ class AwsUtils:
 
             yield current_result
 
-    def get_instance_details(self, stacksets, permissions=dict(), is_superuser=False):
+    def get_instance_details(self, stacksets):
         results = []
 
         for stackset in stacksets:
@@ -430,7 +433,6 @@ class AwsUtils:
             expiry = stackset["expiry"]
             stack_username = stackset["username"]
             stack_email = stackset["email"]
-            extension_count = stackset["extension_count"]
             group = stackset["group"]
 
             for instance_data in self.fetch_stackset_instances(stackset_id=stackset_id):
@@ -438,12 +440,6 @@ class AwsUtils:
                 instance_data["username"] = stack_username
                 instance_data["email"] = stack_email
                 instance_data["group"] = group
-
-                max_extension_count = permissions.get(group, {}).get("max_extension_count", None)
-                if is_superuser:
-                    instance_data["can_extend"] = True
-                elif max_extension_count is not None:
-                    instance_data["can_extend"] = extension_count < max_extension_count
 
                 results.append(instance_data)
 
@@ -459,12 +455,15 @@ class AwsUtils:
             if "instance_id" in item:
                 region_to_instances[(item["account_id"], item["region"])].append(item["instance_id"])
 
+        self.logger.info(f"annotate_with_instance_state: {region_to_instances=}")
+        self.logger.info(f"annotate_with_instance_state: {instances=}")
         # Describe instances per region to get their current state
         state_dict = {}
         for (account_id, region), instance_ids in region_to_instances.items():
             ec2_client = self.get_remote_client(account_id=account_id, region=region, service="ec2")
             described_instances = ec2_client.describe_instances(InstanceIds=instance_ids)
 
+            self.logger.info(f"annotate_with_instance_state: {described_instances=}")
             for instance in described_instances.get("Reservations", []):
                 if len(instance["Instances"]) > 1:
                     raise ValueError(f"More than one instance running: {instance}")
@@ -508,7 +507,6 @@ class AwsUtils:
             stackset_id=stackset_id,
             data=[
                 {"field_name": "instanceStatus", "value": EC2_INSTANCE_PENDING_STATE},
-                {"field_name": "stackStatus", "value": STACK_INSTANCE_PENDING_STATUS},
             ],
         )
 
@@ -532,7 +530,7 @@ class AwsUtils:
         self.mark_stackset_as_updating(stackset_id=stackset_id)
 
         # Update stack set
-        cf_client.update_stack_set(
+        operation = cf_client.update_stack_set(
             StackSetName=stackset_id,
             UsePreviousTemplate=True,
             Parameters=params,
@@ -541,7 +539,9 @@ class AwsUtils:
             ExecutionRoleName=self.execution_role_name,
         )
 
-        self.monitor_update(stackset_id=stackset_id, update_level=UpdateLevel.STACKSET_LEVEL)
+        self.monitor_update(
+            stackset_id=stackset_id, update_level=UpdateLevel.STACKSET_LEVEL, operation_id=operation["OperationId"]
+        )
 
     def stop_instance(self, stackset_id, account_id, region_name, instance_id):
         self.mark_stackset_as_updating(stackset_id=stackset_id)
@@ -720,7 +720,6 @@ class AwsUtils:
                 "instanceType": {"S": instance_type},
                 "operatingSystem": {"S": operating_system},
                 "privateIp": {"S": ""},
-                "stackStatus": {"S": STACKSET_UPDATING_STATUS},
                 "instanceStatus": {"S": ""},
                 "instanceName": {"S": instance_name},
                 "connectionProtocol": {"S": os_config["connection-protocol"]},
@@ -751,22 +750,20 @@ class AwsUtils:
             ):
                 raise StackSetExecutionInProgressException()
 
-    def check_stackset_update_complete(self, stackset_id, update_level):
+    def check_stackset_update_complete(self, stackset_id, update_level, operation_id):
         # Update level can be: stackset (updating params) or instance (updating instance state)
+        self.logger.info(f"check_stackset_update_complete: {stackset_id=} {update_level=} {operation_id=}")
         cf_client = boto3.client("cloudformation")
-        error_if_no_operations = UpdateLevel(update_level) == UpdateLevel.STACKSET_LEVEL
 
-        stack_operations = cf_client.list_stack_set_operations(StackSetName=stackset_id)
-        if error_if_no_operations and not stack_operations["Summaries"]:
-            # Fail if the stack operations are still not available
-            raise StackSetUpdateInProgressException("StackSet operations still not available")
+        if operation_id:
+            stack_operation = cf_client.describe_stack_set_operation(StackSetName=stackset_id, OperationId=operation_id)
+            self.logger.info(f"check_stackset_update_complete: {stack_operation=}")
 
-        for operation in stack_operations["Summaries"]:
-            # The stackset operation hasn't completed
-            if operation["Status"] in STACKSET_OPERATION_INCOMPLETE_STATUSES:
+            if stack_operation["StackSetOperation"]["Status"] in STACKSET_OPERATION_INCOMPLETE_STATUSES:
                 raise StackSetUpdateInProgressException("StackSet operation still in progress")
 
         stack_instances = cf_client.list_stack_instances(StackSetName=stackset_id)
+        self.logger.info(f"check_stackset_update_complete: {stack_instances=}")
         if len(stack_instances["Summaries"]) != 1:
             raise InvalidApplicationState(message="Unexpected number of stack instances")
 
@@ -785,6 +782,7 @@ class AwsUtils:
 
         stack_client = self.get_remote_client(account_id=account_id, region=region, service="cloudformation")
         described_stacks = stack_client.describe_stacks(StackName=stack_id)
+        self.logger.info(f"check_stackset_update_complete: {described_stacks=}")
 
         current_stack = described_stacks["Stacks"][0]
         output_dict = self.parse_stack_outputs(current_stack["Outputs"])

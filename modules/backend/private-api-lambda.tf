@@ -89,6 +89,7 @@ data "aws_iam_policy_document" "private_api" {
     actions = [
       "cloudformation:ListStackInstances",
       "cloudformation:ListStackSetOperations",
+      "cloudformation:DescribeStackSetOperation",
       "cloudformation:DeleteStackInstances",
     ]
     resources = [

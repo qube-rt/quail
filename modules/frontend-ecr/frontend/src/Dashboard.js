@@ -76,7 +76,7 @@ const Dashboard = () => {
       );
       setCurrentInstances(newInstances);
 
-      if (newInstances.filter((instance) => instance.state !== 'running').length === 0) {
+      if (newInstances.filter((instance) => !['running', 'stopped'].includes(instance.instance_status)).length === 0) {
         clearInterval(pollInterval);
         updateState({ pollInterval: undefined });
       }
@@ -179,9 +179,12 @@ const Dashboard = () => {
     setCurrentInstances([
       {
         ...pick(params, [
-          'stackset_id', 'region', 'account_id', 'instanceType', 'expiry', 'email', 'username', 'instanceName', 'group',
+          'stackset_id', 'region', 'expiry', 'email', 'username', 'group',
         ]),
-        operatingSystemName: params.operatingSystem,
+        account: params.account_id,
+        instance_type: params.instanceType,
+        instance_name: params.instanceName,
+        operating_system: params.operatingSystem,
       },
       ...currentInstances,
     ].sort((a, b) => new Date(a.expiry) - new Date(b.expiry)));
@@ -293,7 +296,7 @@ const Dashboard = () => {
       enqueueSnackbar('Instance started.', { variant: 'success' });
       setCurrentInstances(currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
-          ? { ...item, state: 'pending', handlingStart: true } : item),
+          ? { ...item, instance_status: 'pending', handlingStart: true } : item),
       ));
       checkForInstanceUpdates();
     } catch (response) {
@@ -317,11 +320,11 @@ const Dashboard = () => {
       enqueueSnackbar('Instance stopped.', { variant: 'success' });
       setCurrentInstances(currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
-          ? { ...item, state: 'stopping', handlingStop: true } : item),
+          ? { ...item, instance_status: 'stopping', handlingStop: true } : item),
       ));
       checkForInstanceUpdates();
     } catch (response) {
-      enqueueSnackbar(`Could not start instance: ${response.response.data.error || response.message}`, { variant: 'error' });
+      enqueueSnackbar(`Could not stop instance: ${response.response.data.error || response.message}`, { variant: 'error' });
       setCurrentInstances(currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
           ? { ...item, handlingStop: false } : item),
@@ -382,7 +385,7 @@ const Dashboard = () => {
   const handleInstanceUpdateClick = async (instance, instanceType) => {
     setCurrentInstances(currentInstances.map(
       (item) => (item.stackset_id === instance.stackset_id
-        ? { ...item, state: 'updating' } : item),
+        ? { ...item, instance_status: 'updating' } : item),
     ));
 
     try {
@@ -391,7 +394,7 @@ const Dashboard = () => {
       enqueueSnackbar('Instance submitted for update.', { variant: 'success' });
       setCurrentInstances(currentInstances.map(
         (item) => (item.stackset_id === instance.stackset_id
-          ? { ...item, instanceType, state: 'updating' } : item),
+          ? { ...item, instanceType, instance_status: 'updating' } : item),
       ));
       checkForInstanceUpdates();
     } catch (response) {

@@ -237,7 +237,6 @@ def delete_instances(stackset_id):
     current_app.aws.update_stackset_state_entry(
         stackset_id=stackset_id,
         data=[
-            {"field_name": "stackStatus", "value": "deleting"},
             {"field_name": "instanceStatus", "value": "shutting-down"},
         ],
     )

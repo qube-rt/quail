@@ -92,6 +92,7 @@ resource "aws_sfn_state_machine" "update_state_machine" {
             "queryStringParameters" : {
               "stackset_id.$" : "$.stackset_id",
               "update_level.$" : "$.update_level",
+              "operation_id.$" : "$.operation_id"
             }
           }
         },
