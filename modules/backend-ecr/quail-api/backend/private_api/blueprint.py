@@ -28,3 +28,6 @@ def register_routes(blueprint):
     blueprint.add_url_rule(
         "/cleanupSchedule", "cleanup-schedule", view_func=views.post_cleanup_schedule, methods=["post"]
     )
+    # Temporary endpoint
+    # TODO: Clean up
+    blueprint.add_url_rule("/migrateData", "migrate-data", view_func=views.post_migrate_data, methods=["post"])

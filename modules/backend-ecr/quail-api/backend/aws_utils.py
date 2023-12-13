@@ -281,7 +281,7 @@ class AwsUtils:
         ]
         return self.serialize_state_table_row(state_data)
 
-    def update_stack_set_state_entry(self, stackset_id, data):
+    def update_stackset_state_entry(self, stackset_id, data):
         # Data: list of dicts with "field_name" and "value"
         dynamodb_client = boto3.client("dynamodb")
 
@@ -306,7 +306,6 @@ class AwsUtils:
             ReturnValues="ALL_NEW",
         )
 
-        self.logger.info(f"{updated_entry=}")
         return self.serialize_state_table_row(updated_entry["Attributes"])
 
     def get_owned_stacksets(self, email, is_superuser=False):
@@ -482,7 +481,7 @@ class AwsUtils:
         return response
 
     def mark_stackset_as_updating(self, stackset_id):
-        return self.update_stack_set_state_entry(
+        return self.update_stackset_state_entry(
             stackset_id=stackset_id,
             data=[
                 {"field_name": "instanceStatus", "value": EC2_INSTANCE_PENDING_STATE},

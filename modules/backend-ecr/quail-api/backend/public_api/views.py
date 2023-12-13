@@ -236,7 +236,7 @@ def delete_instances(stackset_id):
             "headers": {"Content-Type": "application/json"},
         }
 
-    current_app.aws.update_stack_set_state_entry(
+    current_app.aws.update_stackset_state_entry(
         stackset_id=stackset_id,
         data=[
             {"field_name": "stackStatus", "value": "deleting"},

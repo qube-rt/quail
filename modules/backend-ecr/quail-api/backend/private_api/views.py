@@ -92,7 +92,7 @@ def post_notify_success():
     instance_data = instances[0]
     current_app.logger.info("instance data: %s", instance_data)
 
-    current_app.aws.update_stack_set_state_entry(
+    current_app.aws.update_stackset_state_entry(
         stackset_id=stackset_id,
         data=[
             {"field_name": "privateIp", "value": instance_data["private_ip"]},
@@ -137,7 +137,7 @@ def post_update_complete():
     instance_data = instances[0]
     current_app.logger.info("instance data: %s", instance_data)
 
-    current_app.aws.update_stack_set_state_entry(
+    current_app.aws.update_stackset_state_entry(
         stackset_id=stackset_id,
         data=[
             {"field_name": "instanceType", "value": instance_data["instanceType"]},
@@ -346,5 +346,61 @@ def post_cleanup_schedule():
                         to_email=owner_email,
                     )
                     current_app.logger.info(f"Sending notice email: {response}")
+
+    return {}, 204
+
+
+def post_migrate_data():
+    import boto3  # noqa
+
+    # Get all state data
+    stacksets = current_app.aws.get_all_stack_sets()
+
+    # Find data that's incomplete
+    stacksets = [entry for entry in stacksets if entry["account"] is None]
+    current_app.logger.info(f"Stacksets prepared for update: {stacksets=}")
+
+    # Fetch the state data for the instances
+    stacksets_details = current_app.aws.get_instance_details(
+        stacksets=stacksets,
+    )
+    current_app.logger.info(f"Stacksets details: {stacksets_details=}")
+
+    # For each of the entries with incomplete data
+    dynamodb_client = boto3.client("dynamodb")
+
+    for entry in stacksets_details:
+        # Update state table with instance data
+        dynamodb_client.update_item(
+            TableName=current_app.config["DYNAMODB_STATE_TABLE_NAME"],
+            Key={"stacksetID": {"S": entry["stackset_id"]}},
+            UpdateExpression=(
+                "SET account = :account,"
+                "#region = :region,"
+                "instanceName = :instanceName,"
+                "instanceType = :instanceType,"
+                "operatingSystem = :operatingSystem,"
+                "connectionProtocol = :connectionProtocol,"
+                "privateIp = :privateIp,"
+                "instanceId = :instanceId,"
+                "instanceStatus = :instanceStatus,"
+                "stackStatus = :stackStatus"
+            ),
+            ExpressionAttributeValues={
+                ":account": {"S": entry["account_id"]},
+                ":region": {"S": entry["region"]},
+                ":instanceName": {"S": entry["instanceName"]},
+                ":instanceType": {"S": entry["instanceType"]},
+                ":operatingSystem": {"S": entry["operatingSystemName"]},
+                ":connectionProtocol": {"S": entry["connectionProtocol"]},
+                ":privateIp": {"S": entry["private_ip"]},
+                ":instanceId": {"S": entry["instance_id"]},
+                ":instanceStatus": {"S": entry["state"]},
+                ":stackStatus": {"S": SUCCESS_DETAILED_STATUS},
+            },
+            ExpressionAttributeNames={
+                "#region": "region",
+            },
+        )
 
     return {}, 204
