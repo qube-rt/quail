@@ -1,17 +1,12 @@
 import click
 import boto3
+from botocore.config import Config
 
 SYNCHRONIZED_STATUS = "CURRENT"
 INCOMPLETE_DETAILED_STATUS = {"PENDING", "RUNNING"}
 
 
-@click.command()
-@click.option("--count", default=1, help="Number of greetings.")
-@click.option("--name", prompt="Your name", help="The person to greet.")
-def hello(count, name):
-    """Simple program that greets NAME for a total of COUNT times."""
-    for x in range(count):
-        click.echo(f"Hello {name}!")
+retry_config = Config(retries={"mode": "adaptive", "max_attempts": 7})
 
 
 def serialize_state_table_row(item):
@@ -38,7 +33,7 @@ def serialize_state_table_row(item):
 
 
 def get_instance_details(stackset):
-    cf_client = boto3.client("cloudformation")
+    cf_client = boto3.client("cloudformation", config=retry_config)
 
     stackset_id = stackset["stackset_id"]
 
