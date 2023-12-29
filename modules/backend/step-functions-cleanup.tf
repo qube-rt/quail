@@ -109,7 +109,7 @@ resource "aws_sfn_state_machine" "cleanup_state_machine" {
             },
             "queryStringParameters" : {
               "stackset_id.$" : "$.stackset_id",
-              "error_if_no_operations" : "0"
+              "operation_id.$" : "$.operation_id"
             }
           }
         },
