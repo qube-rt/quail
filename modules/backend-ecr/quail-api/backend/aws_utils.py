@@ -684,7 +684,7 @@ class AwsUtils:
 
         region_params = self.get_params_for_region(account_id=account, region=region)
 
-        client.create_stack_instances(
+        create_operation = client.create_stack_instances(
             StackSetName=stackset_id,
             Accounts=[account],
             Regions=[region],
@@ -726,22 +726,18 @@ class AwsUtils:
             },
         )
 
-        return stackset_id
+        return stackset_id, create_operation["OperationId"]
 
-    def check_stackset_complete(self, stackset_id, error_if_no_operations):
-        client = boto3.client("cloudformation")
+    def check_stackset_complete(self, stackset_id, operation_id):
+        cf_client = boto3.client("cloudformation")
 
-        stack_operations = client.list_stack_set_operations(StackSetName=stackset_id)
-        if error_if_no_operations and not stack_operations["Summaries"]:
-            # Fail if the stack operations are still not available
-            raise StackSetExecutionInProgressException()
+        stack_operation = cf_client.describe_stack_set_operation(StackSetName=stackset_id, OperationId=operation_id)
+        self.logger.info(f"check_stackset_update_complete: {stack_operation=}")
 
-        for operation in stack_operations["Summaries"]:
-            # The stackset operation hasn't completed
-            if operation["Status"] in STACKSET_OPERATION_INCOMPLETE_STATUSES:
-                raise StackSetExecutionInProgressException()
+        if stack_operation["StackSetOperation"]["Status"] in STACKSET_OPERATION_INCOMPLETE_STATUSES:
+            raise StackSetExecutionInProgressException("StackSet operation still in progress")
 
-        stack_instances = client.list_stack_instances(StackSetName=stackset_id)
+        stack_instances = cf_client.list_stack_instances(StackSetName=stackset_id)
         for instance in stack_instances["Summaries"]:
             # Stack instances are in progress of being updated
             if (
@@ -814,7 +810,7 @@ class AwsUtils:
             RetainStacks=False,
         )
 
-        return response
+        return response["OperationId"]
 
     def delete_stack_set(self, stackset_id):
         cfn_client = boto3.client("cloudformation")

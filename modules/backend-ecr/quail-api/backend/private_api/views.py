@@ -36,7 +36,7 @@ def post_provision():
     user_claims = payload["user"]
     tags = get_tags(environment={**user_claims, "group": payload["group"]}, tag_config=tag_config)
 
-    stackset_id = current_app.aws.create_stack_set(
+    stackset_id, create_operation_id = current_app.aws.create_stack_set(
         project_name=project_name,
         tags=tags,
         account=payload["account"],
@@ -50,14 +50,14 @@ def post_provision():
         username=payload["username"],
     )
 
-    return {"stackset_id": stackset_id, "stackset_email": payload["email"]}
+    return {"stackset_id": stackset_id, "stackset_email": payload["email"], "operation_id": create_operation_id}
 
 
 def get_wait():
     wait_data = WaitRequestValidator().load(request.args)
 
     current_app.aws.check_stackset_complete(
-        stackset_id=wait_data["stackset_id"], error_if_no_operations=wait_data["error_if_no_operations"]
+        stackset_id=wait_data["stackset_id"], operation_id=wait_data["operation_id"]
     )
 
     return {}, 204
@@ -253,33 +253,30 @@ def post_cleanup_start():
     # Make provisions for paging of the results
     instances = list(current_app.aws.fetch_stackset_instances(stackset_id=stackset_id, acceptable_statuses=None))
     current_app.logger.info("instances: %s", instances)
-    for instance_data in instances:
-        response = current_app.aws.delete_stack_instance(
-            stackset_id=stackset_id, account_id=instance_data["account_id"], region=instance_data["region"]
-        )
 
-        current_app.logger.info("delete stack instance response: %s", response)
+    instance_data = instances[0]
+    operation_id = current_app.aws.delete_stack_instance(
+        stackset_id=stackset_id, account_id=instance_data["account_id"], region=instance_data["region"]
+    )
 
-        template_data = {
-            "account": instance_data["account_id"],
-            "region": instance_data["region"],
-            "os": instance_data["operatingSystemName"],
-            "instance_type": instance_data["instanceType"],
-            "instance_name": instance_data["instanceName"],
-        }
-        response = send_email(
-            subject="Your compute instance has been deprovisioned",
-            template_name="cleanup_complete",
-            template_data=template_data,
-            source_email=f"Instance Cleanup ({project_name}) <{notification_email}>",
-            to_email=owner_email,
-        )
-
-        current_app.logger.info("send mail response: %s", response)
-
-    return {
-        "stackset_id": stackset_id,
+    template_data = {
+        "account": instance_data["account_id"],
+        "region": instance_data["region"],
+        "os": instance_data["operatingSystemName"],
+        "instance_type": instance_data["instanceType"],
+        "instance_name": instance_data["instanceName"],
     }
+    response = send_email(
+        subject="Your compute instance has been deprovisioned",
+        template_name="cleanup_complete",
+        template_data=template_data,
+        source_email=f"Instance Cleanup ({project_name}) <{notification_email}>",
+        to_email=owner_email,
+    )
+
+    current_app.logger.info("send mail response: %s", response)
+
+    return {"stackset_id": stackset_id, "operation_id": operation_id}
 
 
 def post_cleanup_complete():

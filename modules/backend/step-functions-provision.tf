@@ -113,7 +113,7 @@ resource "aws_sfn_state_machine" "provision_state_machine" {
             "queryStringParameters" : {
               "stackset_email.$" : "$.stackset_email",
               "stackset_id.$" : "$..stackset_id",
-              "error_if_no_operations" : "1"
+              "operation_id.$" : "$.operation_id"
             }
           }
         },
