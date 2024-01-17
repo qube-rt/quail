@@ -276,15 +276,14 @@ class AwsUtils:
 
         return [self.serialize_state_table_row(item) for item in results["Items"]]
 
-    def get_user_stacksets(self, username, permissions, is_superuser):
+    def get_user_stacksets(self, email, permissions, is_superuser):
         dynamodb_client = boto3.client("dynamodb")
         results = dynamodb_client.scan(
             TableName=self.state_table_name,
         )
 
         results = [self.serialize_state_table_row(item) for item in results["Items"]]
-
-        filtered_results = [entry for entry in results if is_superuser or entry["username"] == username]
+        filtered_results = [entry for entry in results if is_superuser or entry["email"] == email]
 
         # annotate stacksets with permission details
         for instance_data in filtered_results:

@@ -23,14 +23,14 @@ def get_params():
 
 
 def get_instances():
-    email, groups, username, is_superuser = itemgetter("email", "groups", "username", "is_superuser")(
+    groups, email, is_superuser = itemgetter("groups", "email", "is_superuser")(
         current_app.aws.get_claims(request=request)
     )
 
     # Get config from dynamodb
     permissions = current_app.aws.get_permissions_for_all_groups(groups=groups)
     instances = current_app.aws.get_user_stacksets(
-        username=username,
+        email=email,
         permissions=permissions,
         is_superuser=is_superuser,
     )
