@@ -5,7 +5,7 @@ FROM python:${INSTALL_PYTHON_VERSION}-slim-buster as production
 
 # This allows to run any docker container as a lambda application
 # From https://github.com/awslabs/aws-lambda-web-adapter
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.7.0 /lambda-adapter /opt/extensions/lambda-adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.7.2 /lambda-adapter /opt/extensions/lambda-adapter
 
 WORKDIR /app
 
