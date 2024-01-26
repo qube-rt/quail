@@ -191,10 +191,14 @@ class AwsUtils:
         az_to_subnet_map = {}
         for item in subnets["Subnets"]:
             current_az = item["AvailabilityZone"]
-            az_to_subnet_map[current_az] = [*az_to_subnet_map.get(current_az, []), item["SubnetId"]]
+            az_to_subnet_map[current_az] = [
+                *az_to_subnet_map.get(current_az, []),
+                item["SubnetId"],
+            ]
 
         potential_azs_response = ec2_client.describe_instance_type_offerings(
-            LocationType="availability-zone", Filters=[{"Name": "instance-type", "Values": [instance_type]}]
+            LocationType="availability-zone",
+            Filters=[{"Name": "instance-type", "Values": [instance_type]}],
         )
         potential_azs = [item["Location"] for item in potential_azs_response["InstanceTypeOfferings"]]
         valid_azs = list(set(potential_azs).intersection(set(potential_azs)))
@@ -255,7 +259,11 @@ class AwsUtils:
         sfn_client.start_execution(
             stateMachineArn=self.update_sfn_arn,
             input=json.dumps(
-                {"stackset_id": stackset_id, "update_level": update_level.value, "operation_id": operation_id}
+                {
+                    "stackset_id": stackset_id,
+                    "update_level": update_level.value,
+                    "operation_id": operation_id,
+                }
             ),
         )
 
@@ -329,10 +337,13 @@ class AwsUtils:
             if instance_az:
                 if instance_az not in azs_to_instance_types:
                     ec2_client = self.get_remote_client(
-                        account_id=instance_data["account"], region=instance_data["region"], service="ec2"
+                        account_id=instance_data["account"],
+                        region=instance_data["region"],
+                        service="ec2",
                     )
                     az_instance_types_response = ec2_client.describe_instance_type_offerings(
-                        LocationType="availability-zone", Filters=[{"Name": "location", "Values": [instance_az]}]
+                        LocationType="availability-zone",
+                        Filters=[{"Name": "location", "Values": [instance_az]}],
                     )
 
                     az_instance_types = [
@@ -591,7 +602,9 @@ class AwsUtils:
         )
 
         self.monitor_update(
-            stackset_id=stackset_id, update_level=UpdateLevel.STACKSET_LEVEL, operation_id=operation["OperationId"]
+            stackset_id=stackset_id,
+            update_level=UpdateLevel.STACKSET_LEVEL,
+            operation_id=operation["OperationId"],
         )
 
     def stop_instance(self, stackset_id, account_id, region_name, instance_id):

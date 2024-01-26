@@ -15,7 +15,13 @@ def group_serializer(groups):
 
 
 def instance_post_serializer(
-    accounts, region_map, instance_types, max_days_to_expiry, initiator_username, initator_email, is_superuser
+    accounts,
+    region_map,
+    instance_types,
+    max_days_to_expiry,
+    initiator_username,
+    initator_email,
+    is_superuser,
 ):
     min_date = datetime.now(timezone.utc) + timedelta(hours=2)
     max_date = datetime.now(timezone.utc) + timedelta(days=max_days_to_expiry)

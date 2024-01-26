@@ -14,7 +14,12 @@ def register_routes(blueprint):
     # Add rules for serving the API
     blueprint.add_url_rule("/param", "params:list", view_func=views.get_params)
     blueprint.add_url_rule("/instance", "instance:list_get", view_func=views.get_instances, methods=["get"])
-    blueprint.add_url_rule("/instance", "instance:list_post", view_func=views.post_instances, methods=["post"])
+    blueprint.add_url_rule(
+        "/instance",
+        "instance:list_post",
+        view_func=views.post_instances,
+        methods=["post"],
+    )
     blueprint.add_url_rule(
         "/instance/<stackset_id>/start",
         "instance:detail_post_start",
@@ -34,8 +39,14 @@ def register_routes(blueprint):
         methods=["post"],
     )
     blueprint.add_url_rule(
-        "/instance/<stackset_id>", "instance:detail_patch", view_func=views.patch_instance, methods=["patch"]
+        "/instance/<stackset_id>",
+        "instance:detail_patch",
+        view_func=views.patch_instance,
+        methods=["patch"],
     )
     blueprint.add_url_rule(
-        "/instance/<stackset_id>", "instance:detail_delete", view_func=views.delete_instances, methods=["delete"]
+        "/instance/<stackset_id>",
+        "instance:detail_delete",
+        view_func=views.delete_instances,
+        methods=["delete"],
     )

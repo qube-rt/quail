@@ -48,7 +48,7 @@ const GridActionsCellItemWrapper = (params) => {
 
 export default function InstancesTable(props) {
   const {
-    is_superuser, instances, instanceTypesPerGroup, onDeleteClick,
+    is_superuser, instances, onDeleteClick,
     onExtendClick, onStartClick, onStopClick, onInstanceUpdateClick,
   } = props;
   const { username } = getUserData();
