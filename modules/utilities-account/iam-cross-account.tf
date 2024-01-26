@@ -55,6 +55,15 @@ data "aws_iam_policy_document" "cross_account_role" {
       values = [var.project-name]
     }
   }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:DescribeSubnets",
+      "ec2:DescribeInstanceTypeOfferings"
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "cross_account_role" {

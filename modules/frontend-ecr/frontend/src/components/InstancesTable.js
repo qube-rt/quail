@@ -130,7 +130,7 @@ export default function InstancesTable(props) {
       renderCell: ({ row: instance, value }) => (
         <SelectField
           fieldName="instanceType"
-          values={instanceTypesPerGroup[instance.group].instanceTypes}
+          values={instance.available_instance_types}
           valueLabels={Config.instanceLabels}
           selected={value}
           disabled={instance.instance_status !== 'running' && instance.instance_status !== 'stopped'}

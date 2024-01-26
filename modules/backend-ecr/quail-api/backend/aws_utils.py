@@ -7,6 +7,7 @@ from collections import defaultdict
 import boto3
 
 from backend.exceptions import (
+    InvalidArgumentsError,
     PermissionsMissing,
     StackSetExecutionInProgressException,
     StackSetUpdateInProgressException,
@@ -170,9 +171,9 @@ class AwsUtils:
 
         return result[0]
 
-    def get_params_for_region(self, account_id, region):
-        client = boto3.client("dynamodb")
-        regional_data = client.get_item(
+    def get_params_for_region(self, account_id, region, instance_type):
+        dynamodb_client = boto3.client("dynamodb")
+        regional_data = dynamodb_client.get_item(
             TableName=self.regional_data_table_name,
             Key={"accountId": {"S": account_id}, "region": {"S": region}},
         )
@@ -182,10 +183,33 @@ class AwsUtils:
                 message=f"The region '{region}' does not have any configuration associated with it."
             )
 
+        subnet_ids = regional_data["Item"]["subnetId"]["SS"]
+
+        # Check which subnet the instance_type is available in
+        ec2_client = self.get_remote_client(account_id=account_id, region=region, service="ec2")
+        subnets = ec2_client.describe_subnets(SubnetIds=subnet_ids)
+        az_to_subnet_map = {}
+        for item in subnets["Subnets"]:
+            current_az = item["AvailabilityZone"]
+            az_to_subnet_map[current_az] = [*az_to_subnet_map.get(current_az, []), item["SubnetId"]]
+
+        potential_azs_response = ec2_client.describe_instance_type_offerings(
+            LocationType="availability-zone", Filters=[{"Name": "instance-type", "Values": [instance_type]}]
+        )
+        potential_azs = [item["Location"] for item in potential_azs_response["InstanceTypeOfferings"]]
+        valid_azs = list(set(potential_azs).intersection(set(potential_azs)))
+
+        if len(valid_azs) == 0:
+            raise InvalidArgumentsError(
+                message=f"The instance type '{instance_type}' is not available in the region '{region}'."
+            )
+
+        selected_az = random.choice(valid_azs)
         result = {
             "vpc_id": regional_data["Item"]["vpcId"]["S"],
             "ssh_key_name": regional_data["Item"]["sshKeyName"]["S"],
-            "subnet_id": regional_data["Item"]["subnetId"]["SS"],
+            "subnet_id": random.choice(az_to_subnet_map[selected_az]),
+            "availability_zone": selected_az,
         }
 
         return result
@@ -266,6 +290,7 @@ class AwsUtils:
             "region": nullable_get(item, "region"),
             "connection_protocol": nullable_get(item, "connectionProtocol"),
             "instance_id": nullable_get(item, "instanceId"),
+            "availability_zone": nullable_get(item, "availabilityZone"),
         }
 
     def get_all_stacksets(self):
@@ -286,6 +311,7 @@ class AwsUtils:
         filtered_results = [entry for entry in results if is_superuser or entry["email"] == email]
 
         # annotate stacksets with permission details
+        azs_to_instance_types = {}
         for instance_data in filtered_results:
             group = instance_data["group"]
             extension_count = instance_data["extension_count"]
@@ -295,6 +321,32 @@ class AwsUtils:
                 instance_data["can_extend"] = True
             elif max_extension_count is not None:
                 instance_data["can_extend"] = extension_count < max_extension_count
+
+            # Prepare the instance types that the current instance can be updated to
+            group_instance_types = permissions[instance_data["group"]]["instance_types"]
+            instance_az = instance_data["availability_zone"]
+
+            if instance_az:
+                if instance_az not in azs_to_instance_types:
+                    ec2_client = self.get_remote_client(
+                        account_id=instance_data["account"], region=instance_data["region"], service="ec2"
+                    )
+                    az_instance_types_response = ec2_client.describe_instance_type_offerings(
+                        LocationType="availability-zone", Filters=[{"Name": "location", "Values": [instance_az]}]
+                    )
+
+                    az_instance_types = [
+                        item["InstanceType"] for item in az_instance_types_response["InstanceTypeOfferings"]
+                    ]
+                    azs_to_instance_types[instance_az] = az_instance_types
+
+                available_instance_types = list(
+                    set(group_instance_types).intersection(set(azs_to_instance_types[instance_az]))
+                )
+            else:
+                available_instance_types = group_instance_types
+
+            instance_data["available_instance_types"] = available_instance_types
 
         return filtered_results
 
@@ -681,7 +733,7 @@ class AwsUtils:
         )
         stackset_id = response["StackSetId"]
 
-        region_params = self.get_params_for_region(account_id=account, region=region)
+        region_params = self.get_params_for_region(account_id=account, region=region, instance_type=instance_type)
 
         create_operation = client.create_stack_instances(
             StackSetName=stackset_id,
@@ -694,7 +746,7 @@ class AwsUtils:
                 },
                 {
                     "ParameterKey": "SubnetId",
-                    "ParameterValue": random.choice(region_params["subnet_id"]),
+                    "ParameterValue": region_params["subnet_id"],
                 },
                 {
                     "ParameterKey": "SSHKeyName",
@@ -722,6 +774,7 @@ class AwsUtils:
                 "instanceStatus": {"S": ""},
                 "instanceName": {"S": instance_name},
                 "connectionProtocol": {"S": os_config["connection-protocol"]},
+                "availabilityZone": {"S": region_params["availability_zone"]},
             },
         )
 
