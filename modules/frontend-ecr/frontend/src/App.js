@@ -10,8 +10,6 @@ import { OktaAuth, toRelativeUrl } from '@okta/okta-auth-js';
 import { SnackbarProvider } from 'notistack';
 import Config from './config';
 import Dashboard from './Dashboard';
-// import AuthCallback from './AuthCallback';
-// import AuthInitiate from './AuthInitiate';
 import RequiredAuth from './components/SecuredRoute';
 import { AxiosInterceptor } from './Axios';
 

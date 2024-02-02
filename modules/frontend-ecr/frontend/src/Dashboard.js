@@ -185,6 +185,7 @@ const Dashboard = () => {
         instance_type: params.instanceType,
         instance_name: params.instanceName,
         operating_system: params.operatingSystem,
+        available_instance_types: [params.instanceType],
       },
       ...currentInstances,
     ].sort((a, b) => new Date(a.expiry) - new Date(b.expiry)));

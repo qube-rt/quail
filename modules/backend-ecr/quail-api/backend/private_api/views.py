@@ -240,7 +240,7 @@ def post_update_failure():
         current_app.aws.update_stackset_state_entry(
             stackset_id=stackset_id,
             data=[
-                {"field_name": "instanceStatus", "value": instances[0]}["state"],
+                {"field_name": "instanceStatus", "value": instances[0]["state"]},
             ],
         )
 
