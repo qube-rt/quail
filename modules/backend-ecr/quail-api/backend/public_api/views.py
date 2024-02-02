@@ -10,7 +10,11 @@ from backend.exceptions import (
     InvalidArgumentsError,
     InstanceUpdateError,
 )
-from backend.serializers import group_serializer, instance_post_serializer, instance_patch_serializer
+from backend.serializers import (
+    group_serializer,
+    instance_post_serializer,
+    instance_patch_serializer,
+)
 
 
 def get_params():

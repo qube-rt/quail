@@ -4,7 +4,10 @@ from datetime import datetime, timedelta, timezone
 from flask import request, current_app
 
 from backend.email_utils import send_email, format_expiry
-from backend.serializers import WaitRequestValidator, WaitForUpdateCompletionRequestValidator
+from backend.serializers import (
+    WaitRequestValidator,
+    WaitForUpdateCompletionRequestValidator,
+)
 
 
 def get_tags(environment, tag_config):
@@ -50,7 +53,11 @@ def post_provision():
         username=payload["username"],
     )
 
-    return {"stackset_id": stackset_id, "stackset_email": payload["email"], "operation_id": create_operation_id}
+    return {
+        "stackset_id": stackset_id,
+        "stackset_email": payload["email"],
+        "operation_id": create_operation_id,
+    }
 
 
 def get_wait():
@@ -256,7 +263,9 @@ def post_cleanup_start():
 
     instance_data = instances[0]
     operation_id = current_app.aws.delete_stack_instance(
-        stackset_id=stackset_id, account_id=instance_data["account_id"], region=instance_data["region"]
+        stackset_id=stackset_id,
+        account_id=instance_data["account_id"],
+        region=instance_data["region"],
     )
 
     template_data = {

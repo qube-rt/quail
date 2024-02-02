@@ -1,4 +1,5 @@
 """Click commands."""
+
 import os
 
 import click

@@ -474,7 +474,6 @@ const Dashboard = () => {
         <InstancesTable
           is_superuser={is_superuser}
           instances={currentInstances}
-          instanceTypesPerGroup={globalPermissions}
           onDeleteClick={handleDeleteClick}
           onExtendClick={handleExtendClick}
           onStartClick={handleStartClick}
