@@ -11,6 +11,13 @@ export default function SelectField(props) {
 
   const formClasses = { ...classes };
 
+  const compare = (left, right) => {
+    if (valueLabels) {
+      return (valueLabels[left] ?? left).localeCompare(valueLabels[right] ?? right);
+    }
+    return left.localeCompare(right);
+  };
+
   return (
     <FormControl variant="standard" className={formClasses.formControl}>
       {label ? <InputLabel id={`${fieldName}-label`}>{label}</InputLabel> : ''}
@@ -23,7 +30,7 @@ export default function SelectField(props) {
         autoWidth
         fullWidth
       >
-        {values.map((item, index) => (
+        {values.sort(compare).map((item, index) => (
           <MenuItem key={index} value={item}>
             {valueLabels && item in valueLabels ? valueLabels[item] : item }
           </MenuItem>

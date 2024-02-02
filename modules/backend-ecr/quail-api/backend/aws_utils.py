@@ -195,13 +195,14 @@ class AwsUtils:
                 *az_to_subnet_map.get(current_az, []),
                 item["SubnetId"],
             ]
+        available_azs = set(az_to_subnet_map.keys())
 
         potential_azs_response = ec2_client.describe_instance_type_offerings(
             LocationType="availability-zone",
             Filters=[{"Name": "instance-type", "Values": [instance_type]}],
         )
         potential_azs = [item["Location"] for item in potential_azs_response["InstanceTypeOfferings"]]
-        valid_azs = list(set(potential_azs).intersection(set(potential_azs)))
+        valid_azs = list(set(available_azs).intersection(set(potential_azs)))
 
         if len(valid_azs) == 0:
             raise InvalidArgumentsError(
