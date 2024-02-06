@@ -192,13 +192,9 @@ const Dashboard = () => {
   };
 
   const saveConfiguration = (params) => {
-    const lastConfigs = [
-      { ...params, timestamp: new Date() },
-      ...state.previousConfigs,
-    ].slice(0, 10);
-    updateState({ previousConfigs: lastConfigs });
-
-    saveConfigurations(lastConfigs);
+    const saveParams = { ...params, timestamp: new Date() };
+    saveConfigurations(saveParams);
+    updateState({ previousConfigs: getConfigurations() });
   };
 
   const validateInstanceName = (instanceName) => {
@@ -373,6 +369,13 @@ const Dashboard = () => {
   };
 
   const handleRestoreClick = (request) => {
+    const requestGroup = request.group;
+    if (!groups.contains(requestGroup)) {
+      enqueueSnackbar('You don\'t have the required permissions to create this instance.', { variant: 'error' });
+    }
+
+    setSelectedGroup(requestGroup);
+
     const pastRequest = {
       selectedAccount: request.account,
       selectedRegion: request.region,
@@ -510,7 +513,11 @@ const Dashboard = () => {
 
       <Box my={6}>
         <Typography variant="h5">Most recently used 10 configurations</Typography>
-        <ConfigsTable configs={previousConfigs} onRestoreClick={handleRestoreClick} />
+        <ConfigsTable
+          configs={previousConfigs}
+          onRestoreClick={handleRestoreClick}
+          userGroups={groups}
+        />
       </Box>
 
     </Container>

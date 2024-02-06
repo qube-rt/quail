@@ -13,7 +13,7 @@ export default function SelectField(props) {
 
   const compare = (left, right) => {
     if (valueLabels) {
-      return (valueLabels[left] ?? left).localeCompare(valueLabels[right] ?? right);
+      return (valueLabels[left] || left).localeCompare(valueLabels[right] || right);
     }
     return left.localeCompare(right);
   };

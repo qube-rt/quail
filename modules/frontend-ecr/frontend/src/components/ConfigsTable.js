@@ -26,7 +26,10 @@ const useStyles = makeStyles((theme) => ({
 
 export default function ConfigsTable(props) {
   const classes = useStyles();
-  const { configs, onRestoreClick } = props;
+  const { configs, onRestoreClick, userGroups } = props;
+
+  const availableConfigs = configs.filter((config) => userGroups.includes(config.group))
+    .slice(0, 10);
 
   return (
     <TableContainer component={Paper}>
@@ -43,7 +46,7 @@ export default function ConfigsTable(props) {
           </TableRow>
         </TableHead>
         <TableBody>
-          {configs.map((config, index) => (
+          {availableConfigs.map((config, index) => (
             <TableRow
               key={index}
               className={classes.tableRow}

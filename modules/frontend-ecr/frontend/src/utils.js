@@ -1,14 +1,18 @@
 import { useOktaAuth } from '@okta/okta-react';
 import Config from './config';
 
-function saveConfigurations(configurations) {
-  localStorage.setItem('previous_configs', JSON.stringify(configurations));
-}
-
 function getConfigurations() {
   return JSON.parse(localStorage.getItem('previous_configs')) || [];
 }
 
+function saveConfigurations(newConfig) {
+  const configurations = [
+    newConfig,
+    ...getConfigurations(),
+  ].slice(0, 20);
+
+  localStorage.setItem('previous_configs', JSON.stringify(configurations));
+}
 function formatDate(date) {
   return new Date(date).toLocaleTimeString(navigator.languages, {
     year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',

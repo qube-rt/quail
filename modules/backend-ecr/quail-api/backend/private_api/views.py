@@ -237,12 +237,13 @@ def post_update_failure():
 
         # Restore the stackset state to the correct one
         instances = current_app.aws.annotate_with_instance_state(instances=[instance_data])
-        current_app.aws.update_stackset_state_entry(
-            stackset_id=stackset_id,
-            data=[
-                {"field_name": "instanceStatus", "value": instances[0]["state"]},
-            ],
-        )
+        if "state" in instances[0]:
+            current_app.aws.update_stackset_state_entry(
+                stackset_id=stackset_id,
+                data=[
+                    {"field_name": "instanceStatus", "value": instances[0]["state"]},
+                ],
+            )
 
     return {}, 204
 
