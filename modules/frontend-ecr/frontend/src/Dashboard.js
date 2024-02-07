@@ -370,7 +370,7 @@ const Dashboard = () => {
 
   const handleRestoreClick = (request) => {
     const requestGroup = request.group;
-    if (!groups.contains(requestGroup)) {
+    if (!groups.includes(requestGroup)) {
       enqueueSnackbar('You don\'t have the required permissions to create this instance.', { variant: 'error' });
     }
 
