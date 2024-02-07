@@ -5,6 +5,7 @@ import random
 from collections import defaultdict
 
 import boto3
+from cachetools import cached, TTLCache
 
 from backend.exceptions import (
     InvalidArgumentsError,
@@ -117,6 +118,19 @@ class AwsUtils:
             if not permissions:
                 continue
 
+            # Filter out the InstanceTypes the users have permissions for
+            # through what's available in the configured AZs
+            for account_id, account_map in permissions["region_map"].items():
+                for region_id in account_map.keys():
+                    region_permissions = self.get_params_for_region(account_id=account_id, region=region_id)
+
+                    all_instance_types = set(
+                        [item for az_list in region_permissions["azs_to_instance_types"].values() for item in az_list]
+                    )
+                    available_instance_types = set(permissions["instance_types"]).intersection(all_instance_types)
+
+                    permissions["region_map"][account_id][region_id]["instance_types"] = list(available_instance_types)
+
             result[group_name] = permissions
 
         return result
@@ -135,12 +149,13 @@ class AwsUtils:
         item = fetched["Item"]
 
         operating_systems = json.loads(item["operatingSystems"]["S"])
-        region_map = defaultdict(lambda: defaultdict(list))
+        region_map = defaultdict(lambda: defaultdict(dict))
         for os_item in operating_systems:
             for account_id in os_item["region-map"].keys():
                 account_map = os_item["region-map"][account_id]
                 for region_name in account_map.keys():
-                    region_map[account_id][region_name] += [os_item["name"]]
+                    current_oses = region_map[account_id][region_name].get("os_types", [])
+                    region_map[account_id][region_name]["os_types"] = [*current_oses, os_item["name"]]
 
         return {
             "instance_types": item["instanceTypes"]["SS"],
@@ -171,7 +186,8 @@ class AwsUtils:
 
         return result[0]
 
-    def get_params_for_region(self, account_id, region, instance_type):
+    @cached(cache=TTLCache(maxsize=1024, ttl=600))
+    def get_params_for_region(self, account_id, region):
         dynamodb_client = boto3.client("dynamodb")
         regional_data = dynamodb_client.get_item(
             TableName=self.regional_data_table_name,
@@ -195,14 +211,33 @@ class AwsUtils:
                 *az_to_subnet_map.get(current_az, []),
                 item["SubnetId"],
             ]
-        available_azs = set(az_to_subnet_map.keys())
 
-        potential_azs_response = ec2_client.describe_instance_type_offerings(
+        availability_zones = list(az_to_subnet_map.keys())
+        potential_instance_types = ec2_client.describe_instance_type_offerings(
             LocationType="availability-zone",
-            Filters=[{"Name": "instance-type", "Values": [instance_type]}],
+            Filters=[{"Name": "location", "Values": availability_zones}],
         )
-        potential_azs = [item["Location"] for item in potential_azs_response["InstanceTypeOfferings"]]
-        valid_azs = list(set(available_azs).intersection(set(potential_azs)))
+        azs_to_instance_types = defaultdict(list)
+        for item in potential_instance_types["InstanceTypeOfferings"]:
+            azs_to_instance_types[item["Location"]].append(item["InstanceType"])
+
+        result = {
+            "vpc_id": regional_data["Item"]["vpcId"]["S"],
+            "ssh_key_name": regional_data["Item"]["sshKeyName"]["S"],
+            "az_to_subnet_map": az_to_subnet_map,
+            "azs_to_instance_types": azs_to_instance_types,
+        }
+
+        return result
+
+    def get_provisioning_params_for_region(self, account_id, region, instance_type):
+        regional_data = self.get_params_for_region(account_id=account_id, region=region)
+
+        valid_azs = [
+            az_name
+            for az_name, instance_types in regional_data["azs_to_instance_types"].items()
+            if instance_type in instance_types
+        ]
 
         if len(valid_azs) == 0:
             raise InvalidArgumentsError(
@@ -211,9 +246,9 @@ class AwsUtils:
 
         selected_az = random.choice(valid_azs)
         result = {
-            "vpc_id": regional_data["Item"]["vpcId"]["S"],
-            "ssh_key_name": regional_data["Item"]["sshKeyName"]["S"],
-            "subnet_id": random.choice(az_to_subnet_map[selected_az]),
+            "vpc_id": regional_data["vpc_id"],
+            "ssh_key_name": regional_data["ssh_key_name"],
+            "subnet_id": random.choice(regional_data["az_to_subnet_map"][selected_az]),
             "availability_zone": selected_az,
         }
 
@@ -320,9 +355,10 @@ class AwsUtils:
         filtered_results = [entry for entry in results if is_superuser or entry["email"] == email]
 
         # annotate stacksets with permission details
-        azs_to_instance_types = {}
         for instance_data in filtered_results:
             group = instance_data["group"]
+            account = instance_data["account"]
+            region = instance_data["region"]
             extension_count = instance_data["extension_count"]
 
             max_extension_count = permissions.get(group, {}).get("max_extension_count", None)
@@ -336,25 +372,11 @@ class AwsUtils:
             instance_az = instance_data["availability_zone"]
 
             if instance_az:
-                if instance_az not in azs_to_instance_types:
-                    ec2_client = self.get_remote_client(
-                        account_id=instance_data["account"],
-                        region=instance_data["region"],
-                        service="ec2",
-                    )
-                    az_instance_types_response = ec2_client.describe_instance_type_offerings(
-                        LocationType="availability-zone",
-                        Filters=[{"Name": "location", "Values": [instance_az]}],
-                    )
+                region_params = self.get_params_for_region(account_id=account, region=region)
+                all_instance_types = region_params["azs_to_instance_types"][instance_az]
+                self.logger.info(f"{group_instance_types=} {all_instance_types=} {region_params=}")
 
-                    az_instance_types = [
-                        item["InstanceType"] for item in az_instance_types_response["InstanceTypeOfferings"]
-                    ]
-                    azs_to_instance_types[instance_az] = az_instance_types
-
-                available_instance_types = list(
-                    set(group_instance_types).intersection(set(azs_to_instance_types[instance_az]))
-                )
+                available_instance_types = list(set(group_instance_types).intersection(set(all_instance_types)))
             else:
                 available_instance_types = group_instance_types
 
@@ -747,7 +769,9 @@ class AwsUtils:
         )
         stackset_id = response["StackSetId"]
 
-        region_params = self.get_params_for_region(account_id=account, region=region, instance_type=instance_type)
+        region_params = self.get_provisioning_params_for_region(
+            account_id=account, region=region, instance_type=instance_type
+        )
 
         create_operation = client.create_stack_instances(
             StackSetName=stackset_id,

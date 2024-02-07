@@ -117,7 +117,7 @@ resource "aws_sfn_state_machine" "update_state_machine" {
             "Next" : "Update Failure"
           },
           {
-            "ErrorEquals": [ "States.ALL" ],
+            "ErrorEquals" : ["States.ALL"],
             "ResultPath" : null,
             "Next" : "Update Failure"
           }

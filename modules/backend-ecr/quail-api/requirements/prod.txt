@@ -17,3 +17,6 @@ environs~=9.5
 
 # getting permissions from s3
 boto3~=1.26
+
+# caching slow AWS API calls
+cachetools~=5.3

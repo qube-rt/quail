@@ -22,6 +22,8 @@ def get_params():
 
     # Get config from dynamodb
     permissions = current_app.aws.get_permissions_for_all_groups(groups=groups)
+    for item in permissions.values():
+        del item["instance_types"]
 
     return permissions
 

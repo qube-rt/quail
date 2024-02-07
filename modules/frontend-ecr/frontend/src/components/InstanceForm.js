@@ -39,7 +39,6 @@ const InstanceForm = (props) => {
     selectedRegion,
     selectedAccount,
     selectedInstanceType,
-    instanceTypes,
     selectedOperatingSystem,
     expiry,
     maxExpiry,
@@ -58,8 +57,10 @@ const InstanceForm = (props) => {
 
   const accounts = regionMap ? Object.keys(regionMap) : [];
   const regions = regionMap && selectedAccount ? Object.keys(regionMap[selectedAccount]) : [];
+  const instanceTypes = regionMap && selectedAccount && selectedRegion
+    ? regionMap[selectedAccount][selectedRegion].instance_types : [];
   const operatingSystems = regionMap && selectedAccount && selectedRegion
-    ? regionMap[selectedAccount][selectedRegion] : [];
+    ? regionMap[selectedAccount][selectedRegion].os_types : [];
 
   const [open, setOpen] = useState(false);
 

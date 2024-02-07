@@ -63,7 +63,10 @@ data "aws_iam_policy_document" "public_api" {
     actions = [
       "dynamodb:GetItem"
     ]
-    resources = [aws_dynamodb_table.permissions-table.arn]
+    resources = [
+      aws_dynamodb_table.permissions-table.arn,
+      aws_dynamodb_table.dynamodb-regional-metadata-table.arn
+    ]
   }
 
   # StackSet-related permissions

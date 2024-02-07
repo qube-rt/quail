@@ -30,7 +30,7 @@ locals {
 
   permission-data = {
     quail-developers = {
-      instance-types = ["t3.nano", "t3.micro", "t3.small"],
+      instance-types = ["t3.nano", "t3.micro", "t3.small", "t3.medium"],
       operating-systems = [
         {
           name                = "AWS Linux 2",
