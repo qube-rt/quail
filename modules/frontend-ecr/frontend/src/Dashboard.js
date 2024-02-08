@@ -86,20 +86,19 @@ const Dashboard = () => {
   };
 
   const [selectedGroup, setSelectedGroup] = useState('');
+  const handleSetSelectedGroup = (targetGroup) => {
+    resetForm();
+    setSelectedGroup(targetGroup);
+  };
   useEffect(() => {
+    resetForm();
     if (groups.length > 0) {
       setSelectedGroup(groups[0]);
     }
-    resetForm();
   }, [groups]);
 
   const [globalPermissions, setGlobalPermissions] = useState({});
   const [groupPermissions, setGroupPermissions] = useState(defaultPermissions);
-  useEffect(() => {
-    if (groups.length > 1) {
-      setSelectedGroup(groups[0]);
-    }
-  }, [groups]);
   useEffect(() => {
     if (globalPermissions && selectedGroup) {
       setGroupPermissions(globalPermissions[selectedGroup] || defaultPermissions);
@@ -477,7 +476,7 @@ const Dashboard = () => {
       <TopAppBar
         onReload={handleReload}
         selectedGroup={selectedGroup}
-        setSelectedGroup={setSelectedGroup}
+        setSelectedGroup={handleSetSelectedGroup}
       />
 
       <Box my={6}>

@@ -374,7 +374,6 @@ class AwsUtils:
             if instance_az:
                 region_params = self.get_params_for_region(account_id=account, region=region)
                 all_instance_types = region_params["azs_to_instance_types"][instance_az]
-                self.logger.info(f"{group_instance_types=} {all_instance_types=} {region_params=}")
 
                 available_instance_types = list(set(group_instance_types).intersection(set(all_instance_types)))
             else:
