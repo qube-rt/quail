@@ -1,5 +1,6 @@
 locals {
-  cleanup_sfn_name = "${var.project-name}-cleanup-state-machine"
+  cleanup_sfn_name    = "${var.project-name}-cleanup-state-machine"
+  cleanup_retry_delay = 60
 }
 
 # CloudWatch log group
@@ -120,9 +121,10 @@ resource "aws_sfn_state_machine" "cleanup_state_machine" {
             "ErrorEquals" : [
               "StackSetExecutionInProgressException"
             ],
-            "IntervalSeconds" : 60,
+            "IntervalSeconds" : local.cleanup_retry_delay,
             "BackoffRate" : 1,
-            "MaxAttempts" : 10
+            "MaxAttempts" : floor(var.cleanup-timeout / local.cleanup_retry_delay) + 1
+
           }
         ]
       },

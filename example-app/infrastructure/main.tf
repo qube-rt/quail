@@ -213,6 +213,8 @@ module "backend" {
   support-localhost-urls        = var.support-localhost-urls
   cfn_data_bucket               = aws_s3_bucket.cfn_data_bucket.bucket
   provision-timeout             = var.provision-timeout
+  cleanup-timeout               = var.cleanup-timeout
+  update-timeout                = var.update-timeout
   cross-account-role-name       = local.cross-account-role-name
   stack-set-execution-role-name = local.stack-set-execution-role-name
   remote-accounts               = [data.aws_caller_identity.second.account_id]
