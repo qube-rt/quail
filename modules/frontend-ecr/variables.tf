@@ -84,9 +84,10 @@ variable "region-name-labels" {
 variable "instance-name-labels" {
   type = map(string)
   default = {
-    "t3.nano"  = "t3.nano (2vCPU/0.5GB)",
-    "t3.micro" = "t3.micro (2vCPU/1GB)",
-    "t3.small" = "t3.small (2vCPU/2GB)",
+    "t3.nano"   = "t3.nano (2vCPU/0.5GB)",
+    "t3.micro"  = "t3.micro (2vCPU/1GB)",
+    "t3.small"  = "t3.small (2vCPU/2GB)",
+    "t3.medium" = "t3.medium (2vCPU/4GB)"
   }
   description = "Mapping of AWS EC2 Instance types to user friendly names."
 }

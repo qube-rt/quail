@@ -58,8 +58,19 @@ variable "hosted-zone-name" {
 
 variable "provision-timeout" {
   type        = number
-  description = "The numer of seconds the provision time machine will wait for an instance to be ready before giving up."
+  description = "The numer of seconds the provision step function will wait for an instance to be ready before giving up."
 }
+
+variable "cleanup-timeout" {
+  type        = number
+  description = "The numer of seconds the cleanup step function will wait for an instance to be removed before giving up."
+}
+
+variable "update-timeout" {
+  type        = number
+  description = "The numer of seconds the provision step function will wait for an instance to be updated before giving up."
+}
+
 
 variable "cfn_data_bucket" {
   type        = string

@@ -1,5 +1,6 @@
 locals {
-  update_sfn_name = "${var.project-name}-update-state-machine"
+  update_sfn_name    = "${var.project-name}-update-state-machine"
+  update_retry_delay = 20
 }
 
 # CloudWatch log group
@@ -103,9 +104,9 @@ resource "aws_sfn_state_machine" "update_state_machine" {
             "ErrorEquals" : [
               "StackSetUpdateInProgressException"
             ],
-            "IntervalSeconds" : 20,
+            "IntervalSeconds" : local.update_retry_delay,
             "BackoffRate" : 1,
-            "MaxAttempts" : 20
+            "MaxAttempts" : floor(var.update-timeout / local.update_retry_delay) + 1
           }
         ],
         "Catch" : [
@@ -117,7 +118,7 @@ resource "aws_sfn_state_machine" "update_state_machine" {
             "Next" : "Update Failure"
           },
           {
-            "ErrorEquals": [ "States.ALL" ],
+            "ErrorEquals" : ["States.ALL"],
             "ResultPath" : null,
             "Next" : "Update Failure"
           }

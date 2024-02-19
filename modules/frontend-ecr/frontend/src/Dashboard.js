@@ -86,20 +86,19 @@ const Dashboard = () => {
   };
 
   const [selectedGroup, setSelectedGroup] = useState('');
+  const handleSetSelectedGroup = (targetGroup) => {
+    resetForm();
+    setSelectedGroup(targetGroup);
+  };
   useEffect(() => {
+    resetForm();
     if (groups.length > 0) {
       setSelectedGroup(groups[0]);
     }
-    resetForm();
   }, [groups]);
 
   const [globalPermissions, setGlobalPermissions] = useState({});
   const [groupPermissions, setGroupPermissions] = useState(defaultPermissions);
-  useEffect(() => {
-    if (groups.length > 1) {
-      setSelectedGroup(groups[0]);
-    }
-  }, [groups]);
   useEffect(() => {
     if (globalPermissions && selectedGroup) {
       setGroupPermissions(globalPermissions[selectedGroup] || defaultPermissions);
@@ -132,7 +131,7 @@ const Dashboard = () => {
         const groupData = Object.fromEntries(
           Object.entries(data).map(([groupName, groupConfig]) => {
             const {
-              region_map, instance_types, max_days_to_expiry,
+              region_map, max_days_to_expiry,
             } = groupConfig;
 
             const maxExpiry = moment(startTime).add(parseInt(max_days_to_expiry, 10), 'days');
@@ -141,13 +140,13 @@ const Dashboard = () => {
             const selectedAccount = accounts[0];
             const regions = Object.keys(region_map[selectedAccount]);
             const selectedRegion = regions[0];
+            const instanceTypes = region_map[selectedAccount][selectedRegion].instance_types;
+            const operatingSystems = region_map[selectedAccount][selectedRegion].os_types;
 
             return [groupName, {
               regionMap: region_map,
-              instanceTypes: instance_types,
-              instanceType: instance_types[0],
-              operatingSystems: region_map[selectedAccount][selectedRegion],
-              operatingSystem: region_map[selectedAccount][selectedRegion][0],
+              instanceType: instanceTypes[0],
+              operatingSystem: operatingSystems[0],
               maxExpiry,
             }];
           }),
@@ -336,21 +335,28 @@ const Dashboard = () => {
       const targetAccount = event.target.value;
       const regions = Object.keys(groupPermissions.regionMap[targetAccount]);
       const selectedRegion = regions[0];
-      const operatingSystems = groupPermissions.regionMap[targetAccount][selectedRegion];
+      const instanceTypes = groupPermissions.regionMap[targetAccount][selectedRegion]
+        .instance_types;
+      const operatingSystems = groupPermissions.regionMap[targetAccount][selectedRegion].os_types;
+
       changes = {
         selectedRegion,
-        operatingSystems,
         operatingSystem: operatingSystems[0],
+        instanceType: instanceTypes[0],
         ...changes,
       };
     }
 
     if (fieldName === 'selectedRegion') {
+      const selectedRegion = event.target.value;
       const operatingSystems = groupPermissions
-        .regionMap[state.selectedAccount][event.target.value];
+        .regionMap[state.selectedAccount][selectedRegion].os_types;
+      const instanceTypes = groupPermissions.regionMap[state.selectedAccount][selectedRegion]
+        .instance_types;
+
       changes = {
-        operatingSystems,
         operatingSystem: operatingSystems[0],
+        instanceType: instanceTypes[0],
         ...changes,
       };
     }
@@ -470,7 +476,7 @@ const Dashboard = () => {
       <TopAppBar
         onReload={handleReload}
         selectedGroup={selectedGroup}
-        setSelectedGroup={setSelectedGroup}
+        setSelectedGroup={handleSetSelectedGroup}
       />
 
       <Box my={6}>
@@ -494,7 +500,6 @@ const Dashboard = () => {
           selectedRegion={selectedRegion}
           selectedAccount={selectedAccount}
           selectedInstanceType={instanceType}
-          instanceTypes={groupPermissions.instanceTypes}
           selectedOperatingSystem={operatingSystem}
           expiry={expiry}
           maxExpiry={groupPermissions.maxExpiry}

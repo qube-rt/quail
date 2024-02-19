@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from flask import request, current_app
 
 from backend.email_utils import send_email, format_expiry
+from backend.exceptions import InstanceUpdateError
 from backend.serializers import (
     WaitRequestValidator,
     WaitForUpdateCompletionRequestValidator,
@@ -237,13 +238,15 @@ def post_update_failure():
 
         # Restore the stackset state to the correct one
         instances = current_app.aws.annotate_with_instance_state(instances=[instance_data])
-        if "state" in instances[0]:
-            current_app.aws.update_stackset_state_entry(
-                stackset_id=stackset_id,
-                data=[
-                    {"field_name": "instanceStatus", "value": instances[0]["state"]},
-                ],
-            )
+        if "state" not in instances[0]:
+            raise InstanceUpdateError("Could not find the running instance")
+
+        current_app.aws.update_stackset_state_entry(
+            stackset_id=stackset_id,
+            data=[
+                {"field_name": "instanceStatus", "value": instances[0]["state"]},
+            ],
+        )
 
     return {}, 204
 

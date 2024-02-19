@@ -72,6 +72,18 @@ variable "provision-timeout" {
   default     = 600
 }
 
+variable "cleanup-timeout" {
+  type        = number
+  description = "The numer of seconds the cleanup step function will wait for an instance to be removed before giving up."
+  default     = 600
+}
+
+variable "update-timeout" {
+  type        = number
+  description = "The numer of seconds the provision step function will wait for an instance to be updated before giving up."
+  default     = 400
+}
+
 variable "instance-tags" {
   type = list(object({
     tag-name  = string,

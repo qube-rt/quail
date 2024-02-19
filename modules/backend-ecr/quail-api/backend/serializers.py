@@ -61,7 +61,7 @@ def instance_post_serializer(
                 raise ValidationError(f"Missing permission for region {data['region']}.")
 
             # Validate operating system
-            supported_oses = region_map[data["account"]][data["region"]]
+            supported_oses = region_map[data["account"]][data["region"]]["os_types"]
             if not supported_oses or data["operating_system"] not in supported_oses:
                 raise ValidationError(f"Missing permission for operating_system {data['operating_system']}.")
 
