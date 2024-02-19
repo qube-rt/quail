@@ -205,6 +205,7 @@ class AwsUtils:
         ec2_client = self.get_remote_client(account_id=account_id, region=region, service="ec2")
         subnets = ec2_client.describe_subnets(SubnetIds=subnet_ids)
         az_to_subnet_map = {}
+        azs_to_instance_types = {}
         for item in subnets["Subnets"]:
             current_az = item["AvailabilityZone"]
             az_to_subnet_map[current_az] = [
@@ -212,14 +213,14 @@ class AwsUtils:
                 item["SubnetId"],
             ]
 
-        availability_zones = list(az_to_subnet_map.keys())
-        potential_instance_types = ec2_client.describe_instance_type_offerings(
-            LocationType="availability-zone",
-            Filters=[{"Name": "location", "Values": availability_zones}],
-        )
-        azs_to_instance_types = defaultdict(list)
-        for item in potential_instance_types["InstanceTypeOfferings"]:
-            azs_to_instance_types[item["Location"]].append(item["InstanceType"])
+            potential_instance_types = ec2_client.describe_instance_type_offerings(
+                LocationType="availability-zone",
+                Filters=[{"Name": "location", "Values": [current_az]}],
+            )
+
+            azs_to_instance_types[current_az] = [
+                item["InstanceType"] for item in potential_instance_types["InstanceTypeOfferings"]
+            ]
 
         result = {
             "vpc_id": regional_data["Item"]["vpcId"]["S"],
